@@ -1,0 +1,123 @@
+---
+title: "Rapport Final statistique en grande dimension"
+author: "Amadou BAH ~ Frederic AKADJE"
+format: html
+editor: visual
+---
+
+##  1. Chargement et exploration du jeu de données
+
+### Chargement du jeu de données
+
+```{r}
+ # Exemple : jeu de données simulé
+ set.seed(12311)
+ n <- 72
+ p <- 1000
+ X <- matrix(rnorm(n * p), n, p)
+ colnames(X) <- paste0("V", 1:p)
+ y <- factor(sample(c("ALL", "AML"), n, replace = TRUE))
+ #
+ # Vérifier les dimensions
+ dim(X)
+```
+### Exploration des données
+
+#### Résumé des dimensions du jeu de données :
+Compte tenu du nombre important de variables ici, une disposition particulière du jeu données sera adoptée pour la réalisation de la description du jeu de données.
+```{r,message=FALSE,warning=FALSE}
+library(tidyverse)
+library(gt)
+# Transformation du jeu de données en dataFrame
+df <- bind_cols(X,Y=y)
+# Nombre de valeurs manquantes par variable
+na_<- df |> 
+  select(-Y)|> # Retrait de la colonne cible
+  summarise_all(list(na = ~sum(is.na(.)))) |> # Aggrégation sur chaque colonne
+  t() # Transposition (format vecteur)
+
+# Moyenne des variables
+mean_ <- df |> 
+  select(-Y)|>
+  summarise_all(list(mean = ~mean(.x,na.rm = TRUE))) |> 
+  t()
+
+# Maximum par colonne
+max_ <- df |> 
+  select(-Y)|>
+  summarise_all(list(max = ~max(.x))) |> 
+  t()
+
+# Médiabe par colonne
+median_ <- df |> 
+  select(-Y)|>
+  summarise_all(list(max = ~max(.x))) |> 
+  t()
+
+# Minimum par colonne
+min_ <- df |> 
+  select(-Y)|>
+  summarise_all(list(min = ~min(.x))) |> 
+  t()
+
+# Ecart-type par colonne
+sd_ <- df |> 
+  select(-Y)|>
+  summarise_all(list(sd = ~sd(.x))) |> 
+  t()
+
+# Tableau de restitution pour la description
+restitution <- bind_cols(Variables = paste0("V", 1:p), # Concaténation de toutes les agrégations
+          NA_ =na_ ,
+          Max_ = max_,
+          Min_ = min_,
+          Mean_ = mean_,
+          Median_ = median_,
+          SD_ = sd_ )
+
+restitution |> 
+  head() |>   # Affichage des 5 premières lignes
+  gt() # Pour un format plus esthétiques
+```
+
+#### Répartition des classes :
+```{r}
+df |>
+  group_by(Y) |>
+  summarise(N=n(),`%`=round(n()*100/n,1)) |>
+  arrange(desc(N)) |> 
+  gt()
+```
+
+Deux classes sont représentées dans le jeu de données à savoir : ALL et AML. 
+
+#### Normalisation et échelle des variables ? :
+```{r}
+restitution |> summarise(
+  `Valeurs manquantes`=sum(NA_),
+  `Maximum des cols`=max(Max_),
+  `Minimum des cols`= min(Min_),
+  `Moyenne des cols` = mean(SD_),
+  `Etendue des cols` = max(Max_)-min(Min_)
+  ) |> gt()
+```
+Le jeu de données comporte aucune valeur manquante au sein de chaque colonne. Toutefois, l'échelle des variables différe à l'observation de l'étendue calculée à partir de l'ensemble des variables.
+
+
+##  2. Analyse en Composantes Principales (ACP)
+
+```{r,message=FALSE,warning=FALSE}
+library(FactoMineR)
+pcaRes <- PCA(df,scale.unit = TRUE,ncp = 100,quali.sup = 1001)
+
+```
+
+A l'observation du graphique, les variables restent difficilement séparables. 4 grands regroupement se distinguent sur le premier plan principal. Cependant ces la circonscription des variables reste très éloignée du bord du cercle, indiquant une mauvaise réprésentation de ces variables sur le premier plan. En effet, le premier plan principal cumule seulement 4.41% de l'information contenues dans le jeu de données. Une quantité bien trop minime pour une tentative d'interprétation des différents axes. Une analyse des contributions cumulées des axes permets l'identification du nombre de composantes pour notre jeu de données.
+
+```{r}
+pcaRes$eig |>
+  tail()
+```
+71 Composantes suffisent à représenter l'entièreté des informations contenues dans le jeu de données.
+
+
