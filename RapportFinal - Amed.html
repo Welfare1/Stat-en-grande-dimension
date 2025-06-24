@@ -1847,10 +1847,10 @@ The final values used for the model were sigma = 3 and C = 0.01.</code></pre>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(pls)</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Création d'une version numérique de Y pour PCR/PLS</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Création d'une variable numérique pour PCR/PLS</span></span>
 <span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>df<span class="sc">$</span>Y_num <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(df<span class="sc">$</span>Y <span class="sc">==</span> <span class="st">"AML"</span>)  <span class="co"># AML = 1, ALL = 0</span></span>
 <span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="co"># PCR avec validation croisée </span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="co"># PCR avec validation croisée</span></span>
 <span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">12311</span>)</span>
 <span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>pcr_model <span class="ot">&lt;-</span> <span class="fu">pcr</span>(Y_num <span class="sc">~</span> . <span class="sc">-</span> Y, <span class="at">data =</span> df, </span>
 <span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>                 <span class="at">scale =</span> <span class="cn">TRUE</span>, </span>
@@ -1874,73 +1874,99 @@ The final values used for the model were sigma = 3 and C = 0.01.</code></pre>
 <div class="cell-output cell-output-stdout">
 <pre><code>Nombre optimal de composantes PCR: 1 </code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"MSEP minimal:"</span>, <span class="fu">min</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"MSEP minimal:"</span>, <span class="fu">round</span>(<span class="fu">min</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="dv">4</span>), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>MSEP minimal: 0.2499504 </code></pre>
+<pre><code>MSEP minimal: 0.25 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Affichage de l'évolution de l'erreur</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,], <span class="at">type =</span> <span class="st">"b"</span>, <span class="at">col =</span> <span class="st">"blue"</span>,</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"PCR - Évolution MSEP selon le nombre de composantes"</span>, </span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Nombre de composantes"</span>, <span class="at">ylab =</span> <span class="st">"MSEP"</span>)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> ncomp_optimal, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="fu">text</span>(ncomp_optimal <span class="sc">+</span> <span class="dv">5</span>, <span class="fu">min</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), </span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>     <span class="fu">paste</span>(<span class="st">"Optimal:"</span>, ncomp_optimal), <span class="at">col =</span> <span class="st">"red"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="RapportFinal---Amed_files/figure-html/unnamed-chunk-10-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
 </div>
 </div>
 </section>
 <section id="analyse-des-performances-pcr" class="level3">
 <h3 class="anchored" data-anchor-id="analyse-des-performances-pcr">Analyse des performances PCR</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Prédictions avec le nombre optimal de composantes</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>pred_pcr <span class="ot">&lt;-</span> <span class="fu">predict</span>(pcr_model, <span class="at">ncomp =</span> ncomp_optimal)</span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>pred_pcr_class <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(pred_pcr <span class="sc">&gt;</span> <span class="fl">0.5</span>, <span class="st">"AML"</span>, <span class="st">"ALL"</span>)</span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Matrice de confusion</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>table_pcr <span class="ot">&lt;-</span> <span class="fu">table</span>(<span class="at">Predicted =</span> pred_pcr_class, <span class="at">Actual =</span> df<span class="sc">$</span>Y)</span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>accuracy_pcr <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">diag</span>(table_pcr)) <span class="sc">/</span> <span class="fu">sum</span>(table_pcr)</span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Matrice de confusion PCR:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Prédictions avec le nombre optimal de composantes</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>pred_pcr <span class="ot">&lt;-</span> <span class="fu">predict</span>(pcr_model, <span class="at">ncomp =</span> ncomp_optimal)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>pred_pcr_class <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(pred_pcr <span class="sc">&gt;</span> <span class="fl">0.5</span>, <span class="st">"AML"</span>, <span class="st">"ALL"</span>)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Matrice de confusion</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>table_pcr <span class="ot">&lt;-</span> <span class="fu">table</span>(<span class="at">Predicted =</span> pred_pcr_class, <span class="at">Actual =</span> df<span class="sc">$</span>Y)</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>accuracy_pcr <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">diag</span>(table_pcr)) <span class="sc">/</span> <span class="fu">sum</span>(table_pcr)</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== RÉSULTATS PCR ===</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Matrice de confusion PCR:</code></pre>
+<pre><code>=== RÉSULTATS PCR ===</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(table_pcr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Nombre de composantes utilisées:"</span>, ncomp_optimal, <span class="st">"sur"</span>, <span class="fu">ncol</span>(df)<span class="sc">-</span><span class="dv">2</span>, <span class="st">"variables</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Nombre de composantes utilisées: 1 sur 1000 variables</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Réduction de dimension:"</span>, <span class="fu">round</span>((<span class="dv">1</span> <span class="sc">-</span> ncomp_optimal<span class="sc">/</span>(<span class="fu">ncol</span>(df)<span class="sc">-</span><span class="dv">2</span>)) <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"%</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Réduction de dimension: 99.9 %</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"MSEP minimal:"</span>, <span class="fu">round</span>(<span class="fu">min</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="dv">4</span>), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>MSEP minimal: 0.25 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Matrice de confusion PCR:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Matrice de confusion PCR:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(table_pcr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>         Actual
 Predicted ALL AML
       ALL   3   1
       AML  27  41</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Précision PCR:"</span>, <span class="fu">round</span>(accuracy_pcr <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Précision PCR:"</span>, <span class="fu">round</span>(accuracy_pcr <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Précision PCR: 61.11 %</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualisation des composantes utilisées</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,], <span class="at">type =</span> <span class="st">"b"</span>, </span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"Évolution de l'erreur MSEP selon le nombre de composantes"</span>,</span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Nombre de composantes"</span>, <span class="at">ylab =</span> <span class="st">"MSEP"</span>)</span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> ncomp_optimal, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="RapportFinal---Amed_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
 </div>
 </div>
 </section>
 <section id="comparaison-pcr-vs-lasso" class="level3">
 <h3 class="anchored" data-anchor-id="comparaison-pcr-vs-lasso">Comparaison PCR vs Lasso</h3>
 <p>D’après les résultats de la section 3, nous avons observé que :</p>
-<p><strong>Lasso :</strong> - <strong>Variables sélectionnées :</strong> Aucune (le modèle a éliminé toutes les variables) - <strong>Lambda optimal :</strong> 0.18 (régularisation forte) - <strong>Approche :</strong> Sélection stricte de variables individuelles - <strong>Interprétabilité :</strong> Très élevée (mais aucune variable retenue)</p>
-<p><strong>PCR :</strong> - <strong>Composantes utilisées :</strong> 1 composantes principales - <strong>Approche :</strong> Combinaisons linéaires de toutes les variables - <strong>Réduction de dimension :</strong> De 1000 variables à 1 composantes</p>
+<p><strong>Lasso :</strong></p>
+<p>- <strong>Variables sélectionnées :</strong> Aucune (le modèle a éliminé toutes les variables)</p>
+<p>- <strong>Lambda optimal :</strong> 0.18 (régularisation forte)</p>
+<p>- <strong>Approche :</strong> Sélection stricte de variables individuelles</p>
+<p>- <strong>Interprétabilité :</strong> Très élevée (mais aucune variable retenue)</p>
+<p><strong>PCR :</strong></p>
+<p>- <strong>Composantes utilisées :</strong> 1 composantes principales</p>
+<p>- <strong>Approche :</strong> Combinaisons linéaires de toutes les variables</p>
+<p>- <strong>Réduction de dimension :</strong> De 1000 variables à 1 composantes</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Comparaison quantitative</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Comparaison Lasso vs PCR:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Comparaison quantitative</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Comparaison Lasso vs PCR:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Comparaison Lasso vs PCR:</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"- Lasso: 0 variables sélectionnées sur 1000</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"- Lasso: 0 variables sélectionnées sur 1000</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>- Lasso: 0 variables sélectionnées sur 1000</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"- PCR:"</span>, ncomp_optimal, <span class="st">"composantes sur 71 possibles</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"- PCR:"</span>, ncomp_optimal, <span class="st">"composantes sur 71 possibles</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>- PCR: 1 composantes sur 71 possibles</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"- Réduction PCR:"</span>, <span class="fu">round</span>((<span class="dv">1000</span> <span class="sc">-</span> ncomp_optimal)<span class="sc">/</span><span class="dv">1000</span> <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"% de réduction</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"- Réduction PCR:"</span>, <span class="fu">round</span>((<span class="dv">1000</span> <span class="sc">-</span> ncomp_optimal)<span class="sc">/</span><span class="dv">1000</span> <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">1</span>), <span class="st">"% de réduction</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>- Réduction PCR: 99.9 % de réduction</code></pre>
 </div>
@@ -1971,16 +1997,16 @@ Précision PCR: 61.11 %</code></pre>
 <section id="mise-en-œuvre-de-la-pls" class="level3">
 <h3 class="anchored" data-anchor-id="mise-en-œuvre-de-la-pls">Mise en œuvre de la PLS</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># PLS avec validation croisée</span></span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">12311</span>)</span>
-<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>pls_model <span class="ot">&lt;-</span> <span class="fu">plsr</span>(Y_num <span class="sc">~</span> . <span class="sc">-</span> Y, <span class="at">data =</span> df, </span>
-<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">scale =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>                  <span class="at">validation =</span> <span class="st">"CV"</span>, </span>
-<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>                  <span class="at">segments =</span> <span class="dv">10</span>)</span>
-<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualisation de l'erreur de validation croisée</span></span>
-<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a><span class="fu">validationplot</span>(pls_model, <span class="at">val.type =</span> <span class="st">"MSEP"</span>, </span>
-<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>               <span class="at">main =</span> <span class="st">"PLS - Erreur de validation croisée"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="co"># PLS avec validation croisée</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">12311</span>)</span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>pls_model <span class="ot">&lt;-</span> <span class="fu">plsr</span>(Y_num <span class="sc">~</span> . <span class="sc">-</span> Y, <span class="at">data =</span> df, </span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">scale =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>                  <span class="at">validation =</span> <span class="st">"CV"</span>, </span>
+<span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a>                  <span class="at">segments =</span> <span class="dv">10</span>)</span>
+<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb44-8"><a href="#cb44-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualisation de l'erreur de validation croisée</span></span>
+<span id="cb44-9"><a href="#cb44-9" aria-hidden="true" tabindex="-1"></a><span class="fu">validationplot</span>(pls_model, <span class="at">val.type =</span> <span class="st">"MSEP"</span>, </span>
+<span id="cb44-10"><a href="#cb44-10" aria-hidden="true" tabindex="-1"></a>               <span class="at">main =</span> <span class="st">"PLS - Erreur de validation croisée"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -1988,14 +2014,14 @@ Précision PCR: 61.11 %</code></pre>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extraction du nombre optimal de composantes</span></span>
-<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>msep_pls <span class="ot">&lt;-</span> <span class="fu">MSEP</span>(pls_model)</span>
-<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>ncomp_pls <span class="ot">&lt;-</span> <span class="fu">which.min</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,])</span>
-<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Nombre optimal de composantes PLS:"</span>, ncomp_pls, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extraction du nombre optimal de composantes</span></span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>msep_pls <span class="ot">&lt;-</span> <span class="fu">MSEP</span>(pls_model)</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>ncomp_pls <span class="ot">&lt;-</span> <span class="fu">which.min</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,])</span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Nombre optimal de composantes PLS:"</span>, ncomp_pls, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Nombre optimal de composantes PLS: 1 </code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"MSEP minimal PLS:"</span>, <span class="fu">min</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"MSEP minimal PLS:"</span>, <span class="fu">min</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>MSEP minimal PLS: 0.2499504 </code></pre>
 </div>
@@ -2004,26 +2030,26 @@ Précision PCR: 61.11 %</code></pre>
 <section id="analyse-des-performances-pls" class="level3">
 <h3 class="anchored" data-anchor-id="analyse-des-performances-pls">Analyse des performances PLS</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Prédictions avec le nombre optimal de composantes</span></span>
-<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>pred_pls <span class="ot">&lt;-</span> <span class="fu">predict</span>(pls_model, <span class="at">ncomp =</span> ncomp_pls)</span>
-<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>pred_pls_class <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(pred_pls <span class="sc">&gt;</span> <span class="fl">0.5</span>, <span class="st">"AML"</span>, <span class="st">"ALL"</span>)</span>
-<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Matrice de confusion</span></span>
-<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>table_pls <span class="ot">&lt;-</span> <span class="fu">table</span>(<span class="at">Predicted =</span> pred_pls_class, <span class="at">Actual =</span> df<span class="sc">$</span>Y)</span>
-<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>accuracy_pls <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">diag</span>(table_pls)) <span class="sc">/</span> <span class="fu">sum</span>(table_pls)</span>
-<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Matrice de confusion PLS:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Prédictions avec le nombre optimal de composantes</span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>pred_pls <span class="ot">&lt;-</span> <span class="fu">predict</span>(pls_model, <span class="at">ncomp =</span> ncomp_pls)</span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>pred_pls_class <span class="ot">&lt;-</span> <span class="fu">ifelse</span>(pred_pls <span class="sc">&gt;</span> <span class="fl">0.5</span>, <span class="st">"AML"</span>, <span class="st">"ALL"</span>)</span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Matrice de confusion</span></span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>table_pls <span class="ot">&lt;-</span> <span class="fu">table</span>(<span class="at">Predicted =</span> pred_pls_class, <span class="at">Actual =</span> df<span class="sc">$</span>Y)</span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>accuracy_pls <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">diag</span>(table_pls)) <span class="sc">/</span> <span class="fu">sum</span>(table_pls)</span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Matrice de confusion PLS:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Matrice de confusion PLS:</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(table_pls)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(table_pls)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>         Actual
 Predicted ALL AML
       ALL  30   0
       AML   0  42</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Précision PLS:"</span>, <span class="fu">round</span>(accuracy_pls <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Précision PLS:"</span>, <span class="fu">round</span>(accuracy_pls <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 Précision PLS: 100 %</code></pre>
@@ -2033,24 +2059,24 @@ Précision PLS: 100 %</code></pre>
 <section id="comparaison-des-trois-méthodes" class="level3">
 <h3 class="anchored" data-anchor-id="comparaison-des-trois-méthodes">Comparaison des trois méthodes</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Tableau de comparaison</span></span>
-<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>comparison_data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>  Méthode <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Lasso"</span>, <span class="st">"PCR"</span>, <span class="st">"PLS"</span>),</span>
-<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">Variables_Composantes =</span> <span class="fu">c</span>(<span class="st">"0 variables"</span>, </span>
-<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">paste</span>(ncomp_optimal, <span class="st">"composantes"</span>), </span>
-<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">paste</span>(ncomp_pls, <span class="st">"composantes"</span>)),</span>
-<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a>  Précision <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"N/A (aucune variable)"</span>, </span>
-<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste</span>(<span class="fu">round</span>(accuracy_pcr <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%"</span>),</span>
-<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste</span>(<span class="fu">round</span>(accuracy_pls <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%"</span>)),</span>
-<span id="cb47-10"><a href="#cb47-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">MSEP =</span> <span class="fu">c</span>(<span class="st">"N/A"</span>, </span>
-<span id="cb47-11"><a href="#cb47-11" aria-hidden="true" tabindex="-1"></a>           <span class="fu">round</span>(<span class="fu">min</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="dv">4</span>),</span>
-<span id="cb47-12"><a href="#cb47-12" aria-hidden="true" tabindex="-1"></a>           <span class="fu">round</span>(<span class="fu">min</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="dv">4</span>)),</span>
-<span id="cb47-13"><a href="#cb47-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">Approche =</span> <span class="fu">c</span>(<span class="st">"Sélection de variables"</span>, </span>
-<span id="cb47-14"><a href="#cb47-14" aria-hidden="true" tabindex="-1"></a>               <span class="st">"Composantes basées sur variance X"</span>, </span>
-<span id="cb47-15"><a href="#cb47-15" aria-hidden="true" tabindex="-1"></a>               <span class="st">"Composantes basées sur covariance X~Y"</span>)</span>
-<span id="cb47-16"><a href="#cb47-16" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb47-17"><a href="#cb47-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb47-18"><a href="#cb47-18" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(comparison_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Tableau de comparaison</span></span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>comparison_data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  Méthode <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Lasso"</span>, <span class="st">"PCR"</span>, <span class="st">"PLS"</span>),</span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">Variables_Composantes =</span> <span class="fu">c</span>(<span class="st">"0 variables"</span>, </span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">paste</span>(ncomp_optimal, <span class="st">"composantes"</span>), </span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>                           <span class="fu">paste</span>(ncomp_pls, <span class="st">"composantes"</span>)),</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>  Précision <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"N/A (aucune variable)"</span>, </span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste</span>(<span class="fu">round</span>(accuracy_pcr <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%"</span>),</span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>                <span class="fu">paste</span>(<span class="fu">round</span>(accuracy_pls <span class="sc">*</span> <span class="dv">100</span>, <span class="dv">2</span>), <span class="st">"%"</span>)),</span>
+<span id="cb55-10"><a href="#cb55-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">MSEP =</span> <span class="fu">c</span>(<span class="st">"N/A"</span>, </span>
+<span id="cb55-11"><a href="#cb55-11" aria-hidden="true" tabindex="-1"></a>           <span class="fu">round</span>(<span class="fu">min</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="dv">4</span>),</span>
+<span id="cb55-12"><a href="#cb55-12" aria-hidden="true" tabindex="-1"></a>           <span class="fu">round</span>(<span class="fu">min</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,]), <span class="dv">4</span>)),</span>
+<span id="cb55-13"><a href="#cb55-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">Approche =</span> <span class="fu">c</span>(<span class="st">"Sélection de variables"</span>, </span>
+<span id="cb55-14"><a href="#cb55-14" aria-hidden="true" tabindex="-1"></a>               <span class="st">"Composantes basées sur variance X"</span>, </span>
+<span id="cb55-15"><a href="#cb55-15" aria-hidden="true" tabindex="-1"></a>               <span class="st">"Composantes basées sur covariance X~Y"</span>)</span>
+<span id="cb55-16"><a href="#cb55-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb55-17"><a href="#cb55-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb55-18"><a href="#cb55-18" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(comparison_data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  Méthode Variables_Composantes             Précision MSEP
 1   Lasso           0 variables N/A (aucune variable)  N/A
@@ -2066,17 +2092,17 @@ Précision PLS: 100 %</code></pre>
 <section id="comparaison-graphique-pcr-vs-pls" class="level3">
 <h3 class="anchored" data-anchor-id="comparaison-graphique-pcr-vs-pls">Comparaison graphique PCR vs PLS</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Comparaison des courbes d'erreur</span></span>
-<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
-<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,], <span class="at">type =</span> <span class="st">"b"</span>, <span class="at">col =</span> <span class="st">"blue"</span>,</span>
-<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"PCR - Évolution MSEP"</span>, </span>
-<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Composantes"</span>, <span class="at">ylab =</span> <span class="st">"MSEP"</span>)</span>
-<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> ncomp_optimal, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
-<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,], <span class="at">type =</span> <span class="st">"b"</span>, <span class="at">col =</span> <span class="st">"green"</span>,</span>
-<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"PLS - Évolution MSEP"</span>, </span>
-<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Composantes"</span>, <span class="at">ylab =</span> <span class="st">"MSEP"</span>)</span>
-<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> ncomp_pls, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Comparaison des courbes d'erreur</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(msep_pcr<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,], <span class="at">type =</span> <span class="st">"b"</span>, <span class="at">col =</span> <span class="st">"blue"</span>,</span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"PCR - Évolution MSEP"</span>, </span>
+<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Composantes"</span>, <span class="at">ylab =</span> <span class="st">"MSEP"</span>)</span>
+<span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> ncomp_optimal, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(msep_pls<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,], <span class="at">type =</span> <span class="st">"b"</span>, <span class="at">col =</span> <span class="st">"green"</span>,</span>
+<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">"PLS - Évolution MSEP"</span>, </span>
+<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a>     <span class="at">xlab =</span> <span class="st">"Composantes"</span>, <span class="at">ylab =</span> <span class="st">"MSEP"</span>)</span>
+<span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> ncomp_pls, <span class="at">col =</span> <span class="st">"red"</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -2106,19 +2132,12 @@ Précision PLS: 100 %</code></pre>
 <li>Nécessite généralement moins de composantes que PCR</li>
 </ul></li>
 </ol>
-<p><strong>Avantages de la PLS sur PCR :</strong> - <strong>Efficacité</strong> : Moins de composantes nécessaires pour une performance équivalente - <strong>Orientation supervisée</strong> : Les composantes sont directement liées à la variable à prédire - <strong>Convergence plus rapide</strong> : L’erreur diminue plus rapidement avec les premières composantes</p>
-<p><strong>Limites communes à PCR et PLS :</strong> - <strong>Perte d’interprétabilité</strong> : Impossible d’identifier les variables originales importantes - <strong>Complexité</strong> : Plus difficile à expliquer que la sélection de variables du Lasso</p>
-</section>
-<section id="conclusion" class="level3">
-<h3 class="anchored" data-anchor-id="conclusion">Conclusion</h3>
-<p>Dans ce contexte de grande dimension (p &gt;&gt; n), la PLS discriminante s’avère supérieure aux autres méthodes testées. Elle parvient à extraire un signal prédictif là où le Lasso échoue complètement, tout en étant plus efficace que la PCR. Cependant, cette performance se fait au prix d’une perte d’interprétabilité des résultats en termes des variables originales.</p>
-</section>
-<section id="sélection-du-nombre-optimal-de-composantes-pls" class="level3">
-<h3 class="anchored" data-anchor-id="sélection-du-nombre-optimal-de-composantes-pls">Sélection du nombre optimal de composantes (PLS)</h3>
+<p>La méthode PLS est plus performante que la PCR car elle tient compte de la variable à prédire pour construire ses composantes, ce qui permet d’obtenir de bons résultats avec moins de dimensions. Elle réduit aussi plus rapidement l’erreur dès les premières composantes. Cependant, comme la PCR, elle rend le modèle difficile à interpréter car on ne sait pas quelles variables d’origine sont les plus importantes.</p>
+<p>Dans un contexte où le nombre de variables est très grand par rapport au nombre d’observations, la PLS discriminante donne de meilleurs résultats que le Lasso et la PCR. Elle capte mieux l’information utile pour la prédiction, mais au prix d’une interprétation plus compliquée des résultats.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Nombre optimal de composantes pour PLS</span></span>
-<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>ncomp_pls <span class="ot">&lt;-</span> <span class="fu">which.min</span>(<span class="fu">MSEP</span>(pls_model)<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,])</span>
-<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>ncomp_pls</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Nombre optimal de composantes pour PLS</span></span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a>ncomp_pls <span class="ot">&lt;-</span> <span class="fu">which.min</span>(<span class="fu">MSEP</span>(pls_model)<span class="sc">$</span>val[<span class="dv">1</span>,<span class="dv">1</span>,])</span>
+<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>ncomp_pls</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>(Intercept) 
           1 </code></pre>
@@ -2130,11 +2149,11 @@ Précision PLS: 100 %</code></pre>
 <h3 class="anchored" data-anchor-id="comparaison-des-performances-pls-vs-pcr-vs-lasso">Comparaison des performances PLS vs PCR vs Lasso</h3>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 18%">
-<col style="width: 25%">
-<col style="width: 18%">
-<col style="width: 18%">
-<col style="width: 18%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -2177,9 +2196,6 @@ Précision PLS: 100 %</code></pre>
 <li><p><strong>PCR</strong> : La PCR capture l’information présente dans les variables explicatives via des combinaisons linéaires (composantes principales). Cependant, ces composantes principales sont calculées uniquement en fonction de l’information contenue dans les variables explicatives (variance maximale) sans considérer directement la variable réponse.</p></li>
 <li><p><strong>PLS</strong> : Contrairement à la PCR, la PLS discriminante construit des composantes qui maximisent directement leur covariance avec la variable cible. Cela aboutit généralement à un nombre réduit de composantes nécessaires pour obtenir une bonne prédiction. Ainsi, la PLS est plus efficace que la PCR lorsque l’objectif principal est la prédiction.</p></li>
 </ul>
-</section>
-<section id="conclusion-intermédiaire" class="level3">
-<h3 class="anchored" data-anchor-id="conclusion-intermédiaire">Conclusion intermédiaire</h3>
 <p>La régression PLS discriminante se révèle particulièrement intéressante dans ce contexte, car elle permet de réduire efficacement la dimension tout en conservant une forte capacité prédictive. Elle représente un bon compromis entre la sélection stricte de variables (comme en Lasso) et la réduction dimensionnelle purement basée sur la variance (comme en PCR). Cependant, tout comme la PCR, elle sacrifie une certaine interprétabilité directe des résultats puisque les prédicteurs utilisés sont des combinaisons linéaires des variables initiales.</p>
 </section>
 </section>

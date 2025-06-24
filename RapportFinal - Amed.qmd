@@ -162,8 +162,6 @@ Aucune variable n'est jugée statistiquement significative pour le modèle. Le m
 
 La valeur de $\lambda$ optimale choisie est assez faible (0.18) ce qui amplifie l'effet de la régularisation dans le modèle.
 
-
-
 ## Comparaison de méthodes de classification
 
 **svm** (Explication méthode)
@@ -206,10 +204,10 @@ La régression sur composantes principales (PCR) est une technique qui combine l
 ```{r, message=FALSE, warning=FALSE}
 library(pls)
 
-# Création d'une version numérique de Y pour PCR/PLS
+# Création d'une variable numérique pour PCR/PLS
 df$Y_num <- as.numeric(df$Y == "AML")  # AML = 1, ALL = 0
 
-# PCR avec validation croisée 
+# PCR avec validation croisée
 set.seed(12311)
 pcr_model <- pcr(Y_num ~ . - Y, data = df, 
                  scale = TRUE, 
@@ -224,7 +222,15 @@ validationplot(pcr_model, val.type = "MSEP",
 msep_pcr <- MSEP(pcr_model)
 ncomp_optimal <- which.min(msep_pcr$val[1,1,])
 cat("Nombre optimal de composantes PCR:", ncomp_optimal, "\n")
-cat("MSEP minimal:", min(msep_pcr$val[1,1,]), "\n")
+cat("MSEP minimal:", round(min(msep_pcr$val[1,1,]), 4), "\n")
+
+# Affichage de l'évolution de l'erreur
+plot(msep_pcr$val[1,1,], type = "b", col = "blue",
+     main = "PCR - Évolution MSEP selon le nombre de composantes", 
+     xlab = "Nombre de composantes", ylab = "MSEP")
+abline(v = ncomp_optimal, col = "red", lty = 2)
+text(ncomp_optimal + 5, min(msep_pcr$val[1,1,]), 
+     paste("Optimal:", ncomp_optimal), col = "red")
 ```
 
 ### Analyse des performances PCR
@@ -238,15 +244,13 @@ pred_pcr_class <- ifelse(pred_pcr > 0.5, "AML", "ALL")
 table_pcr <- table(Predicted = pred_pcr_class, Actual = df$Y)
 accuracy_pcr <- sum(diag(table_pcr)) / sum(table_pcr)
 
-cat("Matrice de confusion PCR:\n")
+cat("=== RÉSULTATS PCR ===\n")
+cat("Nombre de composantes utilisées:", ncomp_optimal, "sur", ncol(df)-2, "variables\n")
+cat("Réduction de dimension:", round((1 - ncomp_optimal/(ncol(df)-2)) * 100, 1), "%\n")
+cat("MSEP minimal:", round(min(msep_pcr$val[1,1,]), 4), "\n")
+cat("\nMatrice de confusion PCR:\n")
 print(table_pcr)
 cat("\nPrécision PCR:", round(accuracy_pcr * 100, 2), "%\n")
-
-# Visualisation des composantes utilisées
-plot(msep_pcr$val[1,1,], type = "b", 
-     main = "Évolution de l'erreur MSEP selon le nombre de composantes",
-     xlab = "Nombre de composantes", ylab = "MSEP")
-abline(v = ncomp_optimal, col = "red", lty = 2)
 ```
 
 ### Comparaison PCR vs Lasso
@@ -254,15 +258,22 @@ abline(v = ncomp_optimal, col = "red", lty = 2)
 D'après les résultats de la section 3, nous avons observé que :
 
 **Lasso :**
-- **Variables sélectionnées :** Aucune (le modèle a éliminé toutes les variables)
-- **Lambda optimal :** 0.18 (régularisation forte)
-- **Approche :** Sélection stricte de variables individuelles
-- **Interprétabilité :** Très élevée (mais aucune variable retenue)
+
+\- **Variables sélectionnées :** Aucune (le modèle a éliminé toutes les variables)
+
+\- **Lambda optimal :** 0.18 (régularisation forte)
+
+\- **Approche :** Sélection stricte de variables individuelles
+
+\- **Interprétabilité :** Très élevée (mais aucune variable retenue)
 
 **PCR :**
-- **Composantes utilisées :** `r ncomp_optimal` composantes principales
-- **Approche :** Combinaisons linéaires de toutes les variables
-- **Réduction de dimension :** De 1000 variables à `r ncomp_optimal` composantes
+
+\- **Composantes utilisées :** `r ncomp_optimal` composantes principales
+
+\- **Approche :** Combinaisons linéaires de toutes les variables
+
+\- **Réduction de dimension :** De 1000 variables à `r ncomp_optimal` composantes
 
 ```{r}
 # Comparaison quantitative
@@ -274,22 +285,22 @@ cat("- Réduction PCR:", round((1000 - ncomp_optimal)/1000 * 100, 1), "% de réd
 
 ### Différence d'approche fondamentale
 
-1. **Lasso** : Effectue une sélection "dure" - les variables sont soit incluses (coefficient ≠ 0) soit exclues (coefficient = 0)
-2. **PCR** : Effectue une transformation "douce" - toutes les variables contribuent aux composantes principales mais avec des poids différents
+1.  **Lasso** : Effectue une sélection "dure" - les variables sont soit incluses (coefficient ≠ 0) soit exclues (coefficient = 0)
+2.  **PCR** : Effectue une transformation "douce" - toutes les variables contribuent aux composantes principales mais avec des poids différents
 
 ### Question guidée : Que perd-on en passant des variables initiales aux composantes principales ?
 
 En passant des variables initiales aux composantes principales, nous perdons principalement :
 
-1. **L'interprétabilité directe** : Une composante principale est une combinaison linéaire de toutes les variables. Il devient difficile d'identifier quelles variables originales ont un impact spécifique sur la prédiction.
+1.  **L'interprétabilité directe** : Une composante principale est une combinaison linéaire de toutes les variables. Il devient difficile d'identifier quelles variables originales ont un impact spécifique sur la prédiction.
 
-2. **La parcimonie** : Contrairement au Lasso qui peut éliminer des variables non informatives, la PCR utilise toutes les variables dans la construction des composantes.
+2.  **La parcimonie** : Contrairement au Lasso qui peut éliminer des variables non informatives, la PCR utilise toutes les variables dans la construction des composantes.
 
-3. **La signification métier** : Les composantes principales n'ont pas de sens physique ou biologique direct, contrairement aux variables originales qui peuvent représenter des gènes, des biomarqueurs, etc.
+3.  **La signification métier** : Les composantes principales n'ont pas de sens physique ou biologique direct, contrairement aux variables originales qui peuvent représenter des gènes, des biomarqueurs, etc.
 
 Cependant, nous gagnons en **stabilité numérique** et en **capacité à capturer des structures complexes** dans les données.
 
----
+------------------------------------------------------------------------
 
 ## 5. Régression PLS discriminante
 
@@ -375,32 +386,19 @@ abline(v = ncomp_pls, col = "red", lty = 2)
 
 **Performances relatives :**
 
-1. **Lasso** : Échec complet - aucune variable sélectionnée
-   - Cela suggère que les variables individuelles n'ont pas d'effet discriminant suffisant
-   - La régularisation L1 a été trop sévère pour ce jeu de données
+1.  **Lasso** : Échec complet - aucune variable sélectionnée
+    -   Cela suggère que les variables individuelles n'ont pas d'effet discriminant suffisant
+    -   La régularisation L1 a été trop sévère pour ce jeu de données
+2.  **PCR** : Performance modérée avec `r ncomp_optimal` composantes
+    -   Réussit à capturer des signaux grâce aux combinaisons de variables
+    -   Nécessite plus de composantes car elles ne sont pas optimisées pour la prédiction
+3.  **PLS** : Meilleure performance avec `r ncomp_pls` composantes
+    -   Plus efficace car les composantes sont construites en tenant compte de Y
+    -   Nécessite généralement moins de composantes que PCR
 
-2. **PCR** : Performance modérée avec `r ncomp_optimal` composantes
-   - Réussit à capturer des signaux grâce aux combinaisons de variables
-   - Nécessite plus de composantes car elles ne sont pas optimisées pour la prédiction
+La méthode PLS est plus performante que la PCR car elle tient compte de la variable à prédire pour construire ses composantes, ce qui permet d’obtenir de bons résultats avec moins de dimensions. Elle réduit aussi plus rapidement l’erreur dès les premières composantes. Cependant, comme la PCR, elle rend le modèle difficile à interpréter car on ne sait pas quelles variables d’origine sont les plus importantes.
 
-3. **PLS** : Meilleure performance avec `r ncomp_pls` composantes
-   - Plus efficace car les composantes sont construites en tenant compte de Y
-   - Nécessite généralement moins de composantes que PCR
-
-**Avantages de la PLS sur PCR :**
-- **Efficacité** : Moins de composantes nécessaires pour une performance équivalente
-- **Orientation supervisée** : Les composantes sont directement liées à la variable à prédire
-- **Convergence plus rapide** : L'erreur diminue plus rapidement avec les premières composantes
-
-**Limites communes à PCR et PLS :**
-- **Perte d'interprétabilité** : Impossible d'identifier les variables originales importantes
-- **Complexité** : Plus difficile à expliquer que la sélection de variables du Lasso
-
-### Conclusion
-
-Dans ce contexte de grande dimension (p >> n), la PLS discriminante s'avère supérieure aux autres méthodes testées. Elle parvient à extraire un signal prédictif là où le Lasso échoue complètement, tout en étant plus efficace que la PCR. Cependant, cette performance se fait au prix d'une perte d'interprétabilité des résultats en termes des variables originales.
-
-### Sélection du nombre optimal de composantes (PLS)
+Dans un contexte où le nombre de variables est très grand par rapport au nombre d’observations, la PLS discriminante donne de meilleurs résultats que le Lasso et la PCR. Elle capte mieux l’information utile pour la prédiction, mais au prix d’une interprétation plus compliquée des résultats.
 
 ```{r}
 # Nombre optimal de composantes pour PLS
@@ -413,7 +411,7 @@ Selon la validation croisée, le nombre optimal de composantes pour la régressi
 ### Comparaison des performances PLS vs PCR vs Lasso
 
 | Méthode | Nb composantes/variables retenues | Principe d'approche | Interprétabilité | Performance prédictive |
-|--------------|-------------------|--------------|--------------|--------------|
+|---------------|---------------|---------------|---------------|---------------|
 | Lasso | 0 | Sélection de variables explicites | Très élevée | Faible dans ce cas (aucune variable sélectionnée) |
 | PCR | `r ncomp_optimal` | Combinaisons linéaires maximisant la variance de X | Faible | Modérée à bonne (utilise plusieurs composantes) |
 | PLS | `r ncomp_pls` | Combinaisons linéaires maximisant la covariance X\~Y | Faible à modérée | Bonne à très bonne (utilise peu de composantes) |
@@ -425,7 +423,5 @@ Selon la validation croisée, le nombre optimal de composantes pour la régressi
 -   **PCR** : La PCR capture l'information présente dans les variables explicatives via des combinaisons linéaires (composantes principales). Cependant, ces composantes principales sont calculées uniquement en fonction de l'information contenue dans les variables explicatives (variance maximale) sans considérer directement la variable réponse.
 
 -   **PLS** : Contrairement à la PCR, la PLS discriminante construit des composantes qui maximisent directement leur covariance avec la variable cible. Cela aboutit généralement à un nombre réduit de composantes nécessaires pour obtenir une bonne prédiction. Ainsi, la PLS est plus efficace que la PCR lorsque l'objectif principal est la prédiction.
-
-### Conclusion intermédiaire
 
 La régression PLS discriminante se révèle particulièrement intéressante dans ce contexte, car elle permet de réduire efficacement la dimension tout en conservant une forte capacité prédictive. Elle représente un bon compromis entre la sélection stricte de variables (comme en Lasso) et la réduction dimensionnelle purement basée sur la variance (comme en PCR). Cependant, tout comme la PCR, elle sacrifie une certaine interprétabilité directe des résultats puisque les prédicteurs utilisés sont des combinaisons linéaires des variables initiales.
