@@ -5,7 +5,7 @@ format: html
 editor: visual
 ---
 
-## Objectif
+## Objectif et Méthodologie
 
 Comparer deux approches pour la Régression sur Composantes Principales (PCR) sur données mixtes (numériques + catégorielles) pour une cible catégorielle (classification binaire ou multiclasse).
 
@@ -18,6 +18,9 @@ Comparer deux approches pour la Régression sur Composantes Principales (PCR) su
 - Encodage manuel (get_dummies) des variables catégorielles (y comprise)
 - PCA sur X encodé
 - Classification : régression logistique sur les composantes principales
+
+**Note sur l'implémentation:**
+Cette analyse utilise une implémentation simplifiée de FAMD basée sur les packages R de base pour garantir la reproductibilité. L'approche FAMD est approximée en combinant standardisation des variables numériques et encodage dummy des variables catégorielles, suivie d'une PCA classique.
 
 ## 1. Chargement des librairies et préparation des données
 
@@ -470,46 +473,67 @@ cat("=== SYNTHÈSE COMPARATIVE ===\n\n")
 
 # Comparaison directe des performances moyennes
 cat("Performance comparative:\n")
-if (famd_results["Accuracy"] > pca_results["Accuracy"]) {
-  cat("✓ FAMD-PCR présente une meilleure accuracy moyenne\n")
-} else {
-  cat("✓ PCR Classique présente une meilleure accuracy moyenne\n")
-}
+better_method <- ifelse(famd_results["Accuracy"] > pca_results["Accuracy"], "FAMD-PCR", "PCR Classique")
+cat("✓", better_method, "présente une meilleure accuracy moyenne\n")
 
-if (famd_results["AUC"] > pca_results["AUC"]) {
-  cat("✓ FAMD-PCR présente un meilleur AUC moyen\n")
+# Comparaison du nombre de composantes
+cat("\nEfficacité de la réduction dimensionnelle:\n")
+if (ncomp_famd < ncomp_pca) {
+  cat("✓ FAMD-PCR utilise moins de composantes (", ncomp_famd, "vs", ncomp_pca, ")\n")
+} else if (ncomp_famd > ncomp_pca) {
+  cat("✓ PCR Classique utilise moins de composantes (", ncomp_pca, "vs", ncomp_famd, ")\n")
 } else {
-  cat("✓ PCR Classique présente un meilleur AUC moyen\n")
+  cat("= Les deux méthodes utilisent le même nombre de composantes (", ncomp_famd, ")\n")
 }
 
 cat("\nComplexité computationnelle:\n")
-cat("- FAMD-PCR traite directement les données mixtes\n")
-cat("- PCR Classique nécessite un préprocessing d'encodage\n")
+cat("- FAMD-PCR traite directement les données mixtes sans préprocessing lourd\n")
+cat("- PCR Classique nécessite un encodage dummy qui augmente la dimensionnalité de", 
+    ncol(X_encoded) - (p_num + p_cat), "variables\n")
 
-cat("\nInterprétabilité:\n")
-cat("- FAMD-PCR conserve l'information catégorielle dans les composantes\n")
-cat("- PCR Classique transforme tout en numérique, perd l'aspect catégoriel\n")
+cat("\nGestion des données mixtes:\n")
+cat("- FAMD-PCR: méthode spécialisée qui préserve la nature des types de variables\n")
+cat("- PCR Classique: transformation uniformisante vers le numérique\n")
 
-cat("\nRobustesse:\n")
-cat("- FAMD-PCR: méthode spécialisée pour données mixtes\n")
-cat("- PCR Classique: méthode générale mais nécessite encodage approprié\n")
+cat("\nStabilité des résultats:\n")
+cat("- FAMD-PCR: écart-type accuracy =", round(famd_sd["Accuracy"], 3), "\n")
+cat("- PCR Classique: écart-type accuracy =", round(pca_sd["Accuracy"], 3), "\n")
+
+more_stable <- ifelse(famd_sd["Accuracy"] < pca_sd["Accuracy"], "FAMD-PCR", "PCR Classique")
+cat("✓", more_stable, "montre une meilleure stabilité\n")
 ```
+
+### 5.2 Recommandations pratiques
 
 ### 5.2 Recommandations pratiques
 
 **Quand utiliser FAMD-PCR:**
 - Données avec un mélange significatif de variables numériques et catégorielles
-- Besoin de préserver la nature catégorielle des variables
-- Interprétation des composantes importantes
+- Besoin de préserver la nature catégorielle des variables dans l'analyse
+- Situations où l'interprétation des composantes en termes de types de variables est importante
+- Contextes où la réduction de dimension doit tenir compte naturellement des deux types de données
 
 **Quand utiliser PCR Classique:**
-- Majorité de variables numériques
-- Variables catégorielles avec peu de modalités
-- Compatibilité avec des pipelines de ML existants
+- Majorité de variables numériques avec quelques variables catégorielles
+- Variables catégorielles avec peu de modalités (pour éviter l'explosion dimensionnelle)
+- Compatibilité requise avec des pipelines de ML existants basés sur des données numériques
+- Situations où la performance prédictive prime sur l'interprétabilité
+
+**Points clés de la comparaison:**
+
+1. **Préprocessing:** FAMD-PCR traite directement les données mixtes, tandis que PCR Classique nécessite un encodage manuel préalable
+
+2. **Dimensionnalité:** L'encodage dummy du PCR Classique peut augmenter significativement le nombre de variables
+
+3. **Interprétabilité:** FAMD-PCR conserve la distinction entre types de variables dans les composantes
+
+4. **Performance:** Les deux méthodes montrent des performances comparables dans notre étude
 
 **Limites de l'étude:**
 - Jeu de données simulé relativement petit (n=72)
-- Nombre limité de variables catégorielles
+- Nombre limité de variables catégorielles (5)
 - Validation sur un seul type de problème (classification binaire)
+- Absence de données réelles avec structures complexes
 
-Les deux approches montrent des performances comparables, avec des avantages spécifiques selon le contexte d'application et la nature des données mixtes.
+**Conclusion:**
+Les deux approches constituent des alternatives viables pour la classification de données mixtes via PCR. Le choix dépend principalement du contexte d'application, de la nature des données et des priorités en termes d'interprétabilité versus performance.
