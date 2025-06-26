@@ -9,18 +9,11 @@ editor: visual
 
 Comparer deux approches pour la Régression sur Composantes Principales (PCR) sur données mixtes (numériques + catégorielles) pour une cible catégorielle (classification binaire ou multiclasse).
 
-**Approche 1 (FAMD-PCR):**
-- Réduction de dimension non supervisée via FAMD (Factor Analysis of Mixed Data)
-- La variable cible y reste catégorielle (pas d'encodage manuel)
-- Classification : régression logistique sur les composantes principales extraites par FAMD
+**Approche 1 (FAMD-PCR):** - Réduction de dimension non supervisée via FAMD (Factor Analysis of Mixed Data) - La variable cible y reste catégorielle (pas d'encodage manuel) - Classification : régression logistique sur les composantes principales extraites par FAMD
 
-**Approche 2 (Classique - PCR Numérique):**
-- Encodage manuel (get_dummies) des variables catégorielles (y comprise)
-- PCA sur X encodé
-- Classification : régression logistique sur les composantes principales
+**Approche 2 (Classique - PCR Numérique):** - Encodage manuel (get_dummies) des variables catégorielles (y comprise) - PCA sur X encodé - Classification : régression logistique sur les composantes principales
 
-**Note sur l'implémentation:**
-Cette analyse utilise une implémentation simplifiée de FAMD basée sur les packages R de base pour garantir la reproductibilité. L'approche FAMD est approximée en combinant standardisation des variables numériques et encodage dummy des variables catégorielles, suivie d'une PCA classique.
+**Note sur l'implémentation:** Cette analyse utilise une implémentation simplifiée de FAMD basée sur les packages R de base pour garantir la reproductibilité. L'approche FAMD est approximée en combinant standardisation des variables numériques et encodage dummy des variables catégorielles, suivie d'une PCA classique.
 
 ## 1. Chargement des librairies et préparation des données
 
@@ -505,35 +498,20 @@ cat("✓", more_stable, "montre une meilleure stabilité\n")
 
 ### 5.2 Recommandations pratiques
 
-### 5.2 Recommandations pratiques
+**Quand utiliser FAMD-PCR:** - Données avec un mélange significatif de variables numériques et catégorielles - Besoin de préserver la nature catégorielle des variables dans l'analyse - Situations où l'interprétation des composantes en termes de types de variables est importante - Contextes où la réduction de dimension doit tenir compte naturellement des deux types de données
 
-**Quand utiliser FAMD-PCR:**
-- Données avec un mélange significatif de variables numériques et catégorielles
-- Besoin de préserver la nature catégorielle des variables dans l'analyse
-- Situations où l'interprétation des composantes en termes de types de variables est importante
-- Contextes où la réduction de dimension doit tenir compte naturellement des deux types de données
-
-**Quand utiliser PCR Classique:**
-- Majorité de variables numériques avec quelques variables catégorielles
-- Variables catégorielles avec peu de modalités (pour éviter l'explosion dimensionnelle)
-- Compatibilité requise avec des pipelines de ML existants basés sur des données numériques
-- Situations où la performance prédictive prime sur l'interprétabilité
+**Quand utiliser PCR Classique:** - Majorité de variables numériques avec quelques variables catégorielles - Variables catégorielles avec peu de modalités (pour éviter l'explosion dimensionnelle) - Compatibilité requise avec des pipelines de ML existants basés sur des données numériques - Situations où la performance prédictive prime sur l'interprétabilité
 
 **Points clés de la comparaison:**
 
-1. **Préprocessing:** FAMD-PCR traite directement les données mixtes, tandis que PCR Classique nécessite un encodage manuel préalable
+1.  **Préprocessing:** FAMD-PCR traite directement les données mixtes, tandis que PCR Classique nécessite un encodage manuel préalable
 
-2. **Dimensionnalité:** L'encodage dummy du PCR Classique peut augmenter significativement le nombre de variables
+2.  **Dimensionnalité:** L'encodage dummy du PCR Classique peut augmenter significativement le nombre de variables
 
-3. **Interprétabilité:** FAMD-PCR conserve la distinction entre types de variables dans les composantes
+3.  **Interprétabilité:** FAMD-PCR conserve la distinction entre types de variables dans les composantes
 
-4. **Performance:** Les deux méthodes montrent des performances comparables dans notre étude
+4.  **Performance:** Les deux méthodes montrent des performances comparables dans notre étude
 
-**Limites de l'étude:**
-- Jeu de données simulé relativement petit (n=72)
-- Nombre limité de variables catégorielles (5)
-- Validation sur un seul type de problème (classification binaire)
-- Absence de données réelles avec structures complexes
+**Limites de l'étude:** - Jeu de données simulé relativement petit (n=72) - Nombre limité de variables catégorielles (5) - Validation sur un seul type de problème (classification binaire) - Absence de données réelles avec structures complexes
 
-**Conclusion:**
-Les deux approches constituent des alternatives viables pour la classification de données mixtes via PCR. Le choix dépend principalement du contexte d'application, de la nature des données et des priorités en termes d'interprétabilité versus performance.
+**Conclusion:** Les deux approches constituent des alternatives viables pour la classification de données mixtes via PCR. Le choix dépend principalement du contexte d'application, de la nature des données et des priorités en termes d'interprétabilité versus performance.
