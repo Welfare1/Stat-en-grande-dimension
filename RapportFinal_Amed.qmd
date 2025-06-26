@@ -872,8 +872,8 @@ Les résultats de validation croisée révèlent une hiérarchie nuancée des pe
 
 1.  **Régression Logistique Ridge** : Performance légèrement supérieure 
     -   **Accuracy** : 58,21% (± 2,26%), la plus élevée des trois méthodes
-    -   **Sensibilité** : 100% (± 0%), détection parfaite de la classe AML
-    -   **Spécificité** : 0% (± 0%), incapacité totale à détecter la classe ALL
+    -   **Sensibilité** : 100,0% (± 0%), détection parfaite de la classe AML
+    -   **Spécificité** : 0,0% (± 0%), incapacité totale à détecter la classe ALL
     -   **F1-score** : 73,57% (± 1,77%), score équilibré le plus élevé
     -   Modèle stable (écart-type faible) mais avec un biais vers la classe majoritaire
 
@@ -887,7 +887,7 @@ Les résultats de validation croisée révèlent une hiérarchie nuancée des pe
 3.  **Forêt Aléatoire** : Performance la plus faible malgré sa robustesse théorique
     -   **Accuracy** : 56,79% (± 5,38%), légèrement inférieure aux autres méthodes
     -   **Sensibilité** : 97,50% (± 7,91%), excellente détection de la classe AML
-    -   **Spécificité** : 0% (± 0%), échec complet sur la classe ALL
+    -   **Spécificité** : 0,0% (± 0%), échec complet sur la classe ALL
     -   **F1-score** : 72,29% (± 4,66%), performance intermédiaire stable
     -   Comportement similaire à la régression logistique avec biais vers AML
 
@@ -930,7 +930,7 @@ Selon les résultats quantitatifs obtenus dans notre contexte spécifique :
     -   **Limitation critique** : spécificité nulle (0%), inutilisable si la détection de la classe ALL est prioritaire
 
 2.  **Pour la discrimination équilibrée** : **Gradient Boosting**
-    -   **Seule méthode avec spécificité mesurable** : 30,00% vs 0% pour les autres
+    -   **Seule méthode avec spécificité mesurable** : 30,00% vs 0,0% pour les autres
     -   Sensibilité équilibrée : **78,00%**, évitant le biais extrême vers AML
     -   Performance globale acceptable : **57,86%** d'accuracy
     -   **Limitation** : variabilité élevée (écart-type **20,55%**) nécessitant validation rigoureuse
@@ -939,15 +939,15 @@ Selon les résultats quantitatifs obtenus dans notre contexte spécifique :
     -   Stabilité intermédiaire : écart-type **5,38%**, plus prévisible que GBM
     -   Sensibilité très élevée : **97,50%** pour la détection d'AML
     -   Performance raisonnable : **56,79%** d'accuracy
-    -   **Limitation** : même biais que la régression logistique (spécificité = 0%)
+    -   **Limitation** : même biais que la régression logistique (spécificité = 0,0%)
 
-**Recommandation contextuelle** : Dans un contexte médical où l'équilibre entre sensibilité et spécificité est crucial, le **Gradient Boosting** s'impose malgré sa variabilité, étant la seule méthode capable de détecter les deux classes.
+**Recommandation contextuelle** : Dans un contexte médical où l'équilibre entre sensibilité et spécificité est crucial, le **Gradient Boosting** s'impose malgré sa variabilité, étant la seule méthode capable de détecter les deux classes (spécificité = 30,00%).
 
 ### 6.6 Conclusion de l'étude comparative
 
 Cette analyse comparative démontre plusieurs principes fondamentaux de l'apprentissage automatique en grande dimension, quantifiés par nos résultats empiriques :
 
-**1. Nuancement de la supériorité des méthodes d'ensemble** : Contrairement aux attentes théoriques, la régression logistique Ridge atteint la meilleure accuracy globale (**58,21%**), dépassant le gradient boosting (**57,86%**) et la forêt aléatoire (**56,79%**). Cependant, cette supériorité masque un biais complet (spécificité = 0%) qui limite son applicabilité pratique.
+**1. Nuancement de la supériorité des méthodes d'ensemble** : Contrairement aux attentes théoriques, la régression logistique Ridge atteint la meilleure accuracy globale (**58,21%**), dépassant le gradient boosting (**57,86%**) et la forêt aléatoire (**56,79%**). Cependant, cette supériorité masque un biais complet (spécificité = 0,0%) qui limite son applicabilité pratique.
 
 **2. Importance critique du choix méthodologique quantifiée** : L'écart de performance modéré (**1,42 points** entre meilleure et moins bonne accuracy) souligne que le choix doit privilégier les caractéristiques qualitatives :
    - **Stabilité** : Régression logistique (écart-type = 2,26%) >> Forêt aléatoire (5,38%) >> Gradient boosting (20,55%)
