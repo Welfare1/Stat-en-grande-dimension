@@ -5,7 +5,7 @@ format: html
 editor: visual
 ---
 
-##  1. Chargement et exploration du jeu de données
+## 1. Chargement et exploration du jeu de données
 
 ### Chargement du jeu de données
 
@@ -21,10 +21,13 @@ editor: visual
  # Vérifier les dimensions
  dim(X)
 ```
+
 ### Exploration des données
 
 #### Résumé des dimensions du jeu de données :
+
 Compte tenu du nombre important de variables ici, une disposition particulière du jeu données sera adoptée pour la réalisation de la description du jeu de données.
+
 ```{r,message=FALSE,warning=FALSE}
 library(tidyverse)
 library(gt)
@@ -81,6 +84,7 @@ restitution |>
 ```
 
 #### Répartition des classes :
+
 ```{r}
 df |>
   group_by(Y) |>
@@ -89,9 +93,10 @@ df |>
   gt()
 ```
 
-Deux classes sont représentées dans le jeu de données à savoir : ALL et AML. 
+Deux classes sont représentées dans le jeu de données à savoir : ALL et AML.
 
 #### Normalisation et échelle des variables ? :
+
 ```{r}
 restitution |> summarise(
   `Valeurs manquantes`=sum(NA_),
@@ -101,10 +106,10 @@ restitution |> summarise(
   `Etendue des cols` = max(Max_)-min(Min_)
   ) |> gt()
 ```
+
 Le jeu de données comporte aucune valeur manquante au sein de chaque colonne. Toutefois, l'échelle des variables différe à l'observation de l'étendue calculée à partir de l'ensemble des variables.
 
-
-##  2. Analyse en Composantes Principales (ACP)
+## 2. Analyse en Composantes Principales (ACP)
 
 ```{r,message=FALSE,warning=FALSE}
 library(FactoMineR)
@@ -118,6 +123,5 @@ A l'observation du graphique, les variables restent difficilement séparables. 4
 pcaRes$eig |>
   tail()
 ```
+
 71 Composantes suffisent à représenter l'entièreté des informations contenues dans le jeu de données.
-
-

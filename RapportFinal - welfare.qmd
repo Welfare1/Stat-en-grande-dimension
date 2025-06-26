@@ -133,7 +133,9 @@ pcaRes$eig |>
 ## 3. Régression logistique lasso
 
 **Régression logistique pénalisée (Lasso)**
+
 ```{r, message=FALSE, warning=FALSE}
+
 library(glmnet)
 df.X <- df |> model.matrix(Y~.,data=_) # format accepté par cv.glmnet 
 reg.cvlasso <- cv.glmnet(
@@ -149,18 +151,20 @@ plot(reg.cvlasso) # Visualisation de l'erreur en fonction des valeurs de lambda
 ```
 
 **Identifier les variables sélectionnées**
+
 ```{r, message=FALSE, warning=FALSE}
 # Obtention des coefficients non nuls
 which(coef(reg.cvlasso)!=0)
 ```
+
 Aucune variable n'est jugée statistiquement significative pour le modèle. Le modèle tend donc à annihiler, les effets des variables explicatives proposées.
 
-**Effet de la régularisation dans ce contexte**<br>
-La régularisation ici est assez parcimonieuse. Le modèle parvient à atteindre sa meilleure performance en l'abscence de la totalité des variables présentes dans le modèle. 
+**Effet de la régularisation dans ce contexte**<br> La régularisation ici est assez parcimonieuse. Le modèle parvient à atteindre sa meilleure performance en l'abscence de la totalité des variables présentes dans le modèle.
 
 La valeur de $\lambda$ optimale choisie est assez faible (0.18) ce qui amplifie l'effet de la régularisation dans le modèle.
 
 **Régression sur composantes principales (PCR)**
+
 ```{r, message=FALSE, warning=FALSE}
 library(pls)
 # Modélisation PCR
@@ -176,12 +180,10 @@ coefficients(pcr.fit)
 df$Y |> as.numeric()
 ```
 
-
-
 ## Comparaison de méthodes de classification
 
-**svm**
-(Explication méthode)
+**svm** (Explication méthode)
+
 ```{r,message=FALSE, warning=FALSE}
 library(caret)
 library(tidymodels)
@@ -211,13 +213,8 @@ res.svm
 
 ```
 
-
 ```{r}
 
 
 
 ```
-
-
-
-
