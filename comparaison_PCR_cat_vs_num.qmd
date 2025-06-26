@@ -552,7 +552,9 @@ Dans notre étude sur données mixtes :
 
 La comparaison entre PCR et Lasso illustre un débat fondamental en apprentissage statistique : **sélection vs transformation**. Nos résultats suggèrent que dans les contextes de haute dimension avec signal distribué, les approches de transformation (PCR, PLS) peuvent surpasser les méthodes de sélection stricte. Cette observation est particulièrement pertinente pour les domaines émergents où l'on dispose de nombreuses mesures potentiellement informatives mais individuellement faibles.
 
-## 5. Comparaison des deux approches PCR
+## 5. Comparaison technique des deux approches PCR
+
+Après avoir analysé le positionnement théorique de la PCR face au Lasso, nous nous concentrons maintenant sur la comparaison pratique entre les deux implémentations de PCR étudiées : FAMD-PCR et PCR Classique. Cette analyse technique détaille leurs performances relatives et leurs spécificités d'implémentation.
 
 ### 5.1 Tableau comparatif des performances
 
