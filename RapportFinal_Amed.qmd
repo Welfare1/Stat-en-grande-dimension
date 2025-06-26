@@ -868,66 +868,97 @@ print(p1)
 
 #### Performance comparative observée
 
-Les résultats de validation croisée révèlent une hiérarchie claire des performances :
+Les résultats de validation croisée révèlent une hiérarchie nuancée des performances avec des différences modérées entre les méthodes :
 
-1.  **Gradient Boosting** : Meilleure performance globale
-    -   Capacité d'apprentissage séquentiel particulièrement adaptée aux patterns complexes
-    -   Optimisation itérative des erreurs efficace en grande dimension
-2.  **Forêt Aléatoire** : Bon compromis performance/stabilité
-    -   Mécanismes intégrés de gestion de la grande dimension (sélection aléatoire de variables)
-    -   Robustesse élevée grâce à l'agrégation de modèles
-3.  **Régression Logistique Ridge** : Performance limitée mais interprétable
-    -   Contraintes de la linéarité en contexte de grande dimension
-    -   Régularisation Ridge insuffisante face au ratio p \>\> n
+1.  **Régression Logistique Ridge** : Performance légèrement supérieure 
+    -   **Accuracy** : 58,21% (± 2,26%), la plus élevée des trois méthodes
+    -   **Sensibilité** : 100,0% (± 0%), détection parfaite de la classe AML
+    -   **Spécificité** : 0,0% (± 0%), incapacité totale à détecter la classe ALL
+    -   **F1-score** : 73,57% (± 1,77%), score équilibré le plus élevé
+    -   Modèle stable (écart-type faible) mais avec un biais vers la classe majoritaire
+
+2.  **Gradient Boosting** : Performance intermédiaire avec meilleur équilibre
+    -   **Accuracy** : 57,86% (± 20,55%), performance proche de la régression logistique
+    -   **Sensibilité** : 78,00% (± 24,86%), bonne détection de la classe AML
+    -   **Spécificité** : 30,00% (± 24,60%), seule méthode avec spécificité non-nulle
+    -   **F1-score** : 67,30% (± 18,68%), équilibre acceptable entre précision et rappel
+    -   Variabilité élevée mais capacité unique à discriminer les deux classes
+
+3.  **Forêt Aléatoire** : Performance la plus faible malgré sa robustesse théorique
+    -   **Accuracy** : 56,79% (± 5,38%), légèrement inférieure aux autres méthodes
+    -   **Sensibilité** : 97,50% (± 7,91%), excellente détection de la classe AML
+    -   **Spécificité** : 0,0% (± 0%), échec complet sur la classe ALL
+    -   **F1-score** : 72,29% (± 4,66%), performance intermédiaire stable
+    -   Comportement similaire à la régression logistique avec biais vers AML
 
 #### Adaptation spécifique à la grande dimension
 
-Notre contexte p \>\> n (1000 variables, 72 observations) met en évidence :
+Notre contexte p >> n (1000 variables, 72 observations) révèle des défis particuliers mis en évidence par les résultats quantitatifs :
 
--   **Supériorité des méthodes d'ensemble** : RF et GBM surpassent nettement la régression logistique
--   **Importance de la régularisation implicite** : Les mécanismes intégrés des méthodes d'ensemble compensent efficacement la malédiction de la dimension
--   **Limites des approches linéaires** : Même avec régularisation Ridge, la régression logistique reste limitée face à la complexité des interactions possibles
+-   **Défi du déséquilibre des classes** : Avec 58,3% d'échantillons AML vs 41,7% d'ALL, toutes les méthodes montrent un biais systématique vers la classe majoritaire (spécificité nulle pour RF et régression logistique)
+
+-   **Efficacité variable des stratégies de régularisation** : 
+    -   La régularisation Ridge (λ optimal = 0,18) permet une stabilité remarquable (écart-type accuracy = 2,26%) mais au prix d'un biais complet
+    -   Le gradient boosting, malgré sa variabilité élevée (écart-type = 20,55%), est la seule méthode atteignant une spécificité mesurable (30%)
+    -   La forêt aléatoire, théoriquement robuste, reproduit les limitations de la régression logistique
+
+-   **Impact du ratio p >> n confirmé numériquement** : L'écart modéré entre les performances (maximum 1,42 points d'accuracy entre meilleure et moins bonne méthode) suggère que toutes les méthodes sont limitées par la dimension excessive relative à la taille d'échantillon
 
 #### Synthèse comparative
 
 ```{r}
-# Tableau de comparaison qualitative adapté aux résultats
+# Tableau de comparaison quantitative basé sur nos résultats empiriques
 comparison_final <- data.frame(
-  Critère = c("Performance", "Interprétabilité", "Stabilité", "Complexité", "Temps de calcul"),
-  `Régression Logistique` = c("Modérée", "Très élevée", "Modérée", "Faible", "Rapide"),
-  `Forêt Aléatoire` = c("Bonne", "Modérée", "Élevée", "Modérée", "Modéré"),
-  `Gradient Boosting` = c("Très bonne", "Faible", "Modérée", "Élevée", "Lent"),
+  Critère = c("Accuracy (%)", "Stabilité (écart-type)", "Sensibilité (%)", "Spécificité (%)", "F1-score (%)"),
+  `Régression Logistique` = c("58,21", "0,023", "100,0", "0,0", "73,57"),
+  `Forêt Aléatoire` = c("56,79", "0,054", "97,5", "0,0", "72,29"),
+  `Gradient Boosting` = c("57,86", "0,206", "78,0", "30,0", "67,30"),
   check.names = FALSE
 )
 
-kable(comparison_final, caption = "Synthèse comparative adaptée aux résultats obtenus")
+kable(comparison_final, caption = "Synthèse comparative quantitative des résultats obtenus")
 ```
 
 #### Recommandations pratiques
 
-Selon les résultats obtenus dans notre contexte spécifique :
+Selon les résultats quantitatifs obtenus dans notre contexte spécifique :
 
-1.  **Pour la performance pure** : **Gradient Boosting**
-    -   Meilleure accuracy moyenne
-    -   Capacité d'apprentissage séquentiel efficace en grande dimension
-2.  **Pour l'équilibre performance/robustesse** : **Forêt Aléatoire**
-    -   Bon compromis entre performance et stabilité
-    -   Gestion naturelle de la grande dimension
-    -   Moins sensible aux hyperparamètres
-3.  **Pour l'interprétabilité** : **Régression Logistique Ridge**
-    -   Coefficients directement interprétables
-    -   Performance limitée mais modèle transparent
+1.  **Pour la performance brute** : **Régression Logistique Ridge**
+    -   Accuracy la plus élevée : **58,21%** vs 57,86% (GBM) et 56,79% (RF)
+    -   Stabilité exceptionnelle : écart-type de seulement **2,26%**
+    -   F1-score optimal : **73,57%**, meilleur équilibre précision-rappel
+    -   **Limitation critique** : spécificité nulle (0%), inutilisable si la détection de la classe ALL est prioritaire
+
+2.  **Pour la discrimination équilibrée** : **Gradient Boosting**
+    -   **Seule méthode avec spécificité mesurable** : 30,00% vs 0,0% pour les autres
+    -   Sensibilité équilibrée : **78,00%**, évitant le biais extrême vers AML
+    -   Performance globale acceptable : **57,86%** d'accuracy
+    -   **Limitation** : variabilité élevée (écart-type **20,55%**) nécessitant validation rigoureuse
+
+3.  **Pour la robustesse et reproductibilité** : **Forêt Aléatoire**  
+    -   Stabilité intermédiaire : écart-type **5,38%**, plus prévisible que GBM
+    -   Sensibilité très élevée : **97,50%** pour la détection d'AML
+    -   Performance raisonnable : **56,79%** d'accuracy
+    -   **Limitation** : même biais que la régression logistique (spécificité = 0,0%)
+
+**Recommandation contextuelle** : Dans un contexte médical où l'équilibre entre sensibilité et spécificité est crucial, le **Gradient Boosting** s'impose malgré sa variabilité, étant la seule méthode capable de détecter les deux classes (spécificité = 30,00%).
 
 ### 6.6 Conclusion de l'étude comparative
 
-Cette analyse comparative démontre plusieurs principes fondamentaux de l'apprentissage automatique en grande dimension :
+Cette analyse comparative démontre plusieurs principes fondamentaux de l'apprentissage automatique en grande dimension, quantifiés par nos résultats empiriques :
 
-**1. Supériorité des méthodes d'ensemble** : Les forêts aléatoires et le gradient boosting surpassent significativement la régression logistique dans notre contexte p \>\> n, démontrant l'efficacité des mécanismes de régularisation implicite.
+**1. Nuancement de la supériorité des méthodes d'ensemble** : Contrairement aux attentes théoriques, la régression logistique Ridge atteint la meilleure accuracy globale (**58,21%**), dépassant le gradient boosting (**57,86%**) et la forêt aléatoire (**56,79%**). Cependant, cette supériorité masque un biais complet (spécificité = 0,0%) qui limite son applicabilité pratique.
 
-**2. Importance du choix méthodologique** : Le choix de la méthode doit être guidé par les priorités : performance pure (GBM), équilibre performance/robustesse (RF), ou interprétabilité (régression logistique).
+**2. Importance critique du choix méthodologique quantifiée** : L'écart de performance modéré (**1,42 points** entre meilleure et moins bonne accuracy) souligne que le choix doit privilégier les caractéristiques qualitatives :
+   - **Stabilité** : Régression logistique (écart-type = 2,26%) >> Forêt aléatoire (5,38%) >> Gradient boosting (20,55%)
+   - **Équilibre classes** : Seul le gradient boosting atteint une spécificité non-nulle (**30%**)
+   - **Sensibilité** : Forêt aléatoire (**97,50%**) ≈ Régression logistique (**100%**) > Gradient boosting (**78%**)
 
-**3. Validation empirique en contexte réel** : Les résultats obtenus sur des données en grande dimension confirment les prédictions théoriques concernant les limitations des approches linéaires et l'efficacité des méthodes d'ensemble.
+**3. Validation empirique des limites en grande dimension** : Le ratio p >> n (1000/72 ≈ 14) impose des contraintes sévères confirmées quantitativement :
+   - Aucune méthode ne dépasse **60% d'accuracy**, illustrant la difficulté intrinsèque
+   - Le déséquilibre des classes (58,3% AML / 41,7% ALL) amplifie les biais algorithmiques
+   - La régularisation optimale (λ = 0,18 pour Ridge) privilégie la stabilité au détriment de la discrimination
 
-**4. Adaptation au contexte p \>\> n** : Dans un contexte où p \>\> n, les méthodes d'ensemble offrent une solution naturelle aux défis de la grande dimension, sans nécessiter de préprocessing complexe de réduction de dimension.
+**4. Adaptation contextuelle nécessaire** : Dans notre contexte médical spécifique (classification leucémies), le **gradient boosting** s'impose comme choix optimal malgré sa variabilité (**écart-type 20,55%**), étant la seule méthode capable de discrimination bi-classe, critère essentiel en diagnostic différentiel.
 
-Cette étude confirme qu'il n'existe pas de méthode universellement optimale : le choix dépend du contexte et des priorités du praticien. Une approche rigoureuse de validation croisée et une compréhension des limites de chaque méthode sont essentielles pour une pratique éclairée de l'apprentissage automatique en statistique en grande dimension.
+Cette étude confirme empiriquement qu'en contexte p >> n, **aucune méthode n'est universellement optimale** : le choix doit intégrer les contraintes métier (ici, la nécessité de détecter les deux classes de leucémies) au-delà des seules métriques de performance globale. La validation croisée rigoureuse révèle des nuances cruciales masquées par les moyennes agrégées.
