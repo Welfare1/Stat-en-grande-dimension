@@ -1,0 +1,467 @@
+---
+title: "Comparaison de deux approches PCR pour données mixtes"
+author: "Analyse comparative FAMD-PCR vs PCR Classique"
+format: html
+editor: visual
+---
+
+## Objectif
+
+Comparer deux approches pour la Régression sur Composantes Principales (PCR) sur données mixtes (numériques + catégorielles) pour une cible catégorielle (classification binaire ou multiclasse).
+
+**Approche 1 (FAMD-PCR):**
+- Réduction de dimension non supervisée via FAMD (Factor Analysis of Mixed Data)
+- La variable cible y reste catégorielle (pas d'encodage manuel)
+- Classification : régression logistique sur les composantes principales extraites par FAMD
+
+**Approche 2 (Classique - PCR Numérique):**
+- Encodage manuel (get_dummies) des variables catégorielles (y comprise)
+- PCA sur X encodé
+- Classification : régression logistique sur les composantes principales
+
+## 1. Chargement des librairies et préparation des données
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(FactoMineR)
+library(pls)
+library(caret)
+library(pROC)
+
+# Essayer d'installer et charger Prince si disponible
+if (!require(prince, quietly = TRUE)) {
+  # Fallback sur FactoMineR pour FAMD si Prince n'est pas disponible
+  cat("Prince package non disponible, utilisation de FactoMineR pour FAMD\n")
+  use_prince <- FALSE
+} else {
+  use_prince <- TRUE
+}
+
+set.seed(12311)
+```
+
+### Création d'un jeu de données mixte
+
+```{r data_generation}
+# Paramètres du jeu de données
+n <- 72
+p_num <- 800    # Variables numériques
+p_cat <- 5      # Variables catégorielles
+
+# Génération des variables numériques
+X_num <- matrix(rnorm(n * p_num), n, p_num)
+colnames(X_num) <- paste0("Num_", 1:p_num)
+
+# Génération des variables catégorielles
+set.seed(12311)
+X_cat <- data.frame(
+  Cat_1 = factor(sample(c("A", "B", "C"), n, replace = TRUE, prob = c(0.4, 0.4, 0.2))),
+  Cat_2 = factor(sample(c("X", "Y"), n, replace = TRUE, prob = c(0.6, 0.4))),
+  Cat_3 = factor(sample(c("Low", "Medium", "High"), n, replace = TRUE, prob = c(0.3, 0.4, 0.3))),
+  Cat_4 = factor(sample(c("Type1", "Type2", "Type3", "Type4"), n, replace = TRUE)),
+  Cat_5 = factor(sample(c("Group1", "Group2"), n, replace = TRUE, prob = c(0.7, 0.3)))
+)
+
+# Variable cible binaire
+y <- factor(sample(c("ALL", "AML"), n, replace = TRUE, prob = c(0.42, 0.58)))
+
+# Création du dataframe complet
+df_mixed <- cbind(data.frame(X_num), X_cat, Y = y)
+
+cat("Dimensions du jeu de données mixte:", dim(df_mixed), "\n")
+cat("Variables numériques:", p_num, "\n")
+cat("Variables catégorielles:", p_cat, "\n")
+cat("Répartition de la variable cible:\n")
+table(df_mixed$Y)
+```
+
+## 2. Approche 1: FAMD-PCR
+
+### 2.1 FAMD (Factor Analysis of Mixed Data)
+
+```{r famd_analysis}
+# Séparer les variables explicatives de la cible
+X_mixed <- df_mixed[, !names(df_mixed) %in% "Y"]
+
+# FAMD avec FactoMineR (plus stable et disponible)
+cat("Réalisation de l'analyse FAMD...\n")
+
+# Identifier les indices des variables catégorielles
+cat_indices <- which(sapply(X_mixed, is.factor))
+cat("Variables catégorielles aux positions:", cat_indices, "\n")
+
+# FAMD
+famd_result <- FAMD(X_mixed, 
+                    ncp = min(50, n-1),  # Maximum 50 composantes ou n-1
+                    graph = FALSE)
+
+# Variance expliquée
+variance_explained <- famd_result$eig[,2]
+cumvar_explained <- famd_result$eig[,3]
+
+cat("Variance expliquée par les 10 premières composantes FAMD:\n")
+print(round(variance_explained[1:10], 2))
+
+# Critère du coude pour choisir le nombre de composantes
+plot(1:min(20, length(variance_explained)), variance_explained[1:min(20, length(variance_explained))], 
+     type = "b", col = "blue",
+     main = "Scree Plot FAMD - Variance expliquée par composante", 
+     xlab = "Composante", ylab = "% Variance expliquée")
+abline(h = mean(variance_explained), col = "red", lty = 2)
+
+# Choisir le nombre de composantes (critère: variance cumulée >= 80% ou coude)
+ncomp_famd <- which(cumvar_explained >= 80)[1]
+if (is.na(ncomp_famd)) ncomp_famd <- min(15, length(variance_explained))
+
+cat("Nombre de composantes FAMD retenues:", ncomp_famd, "\n")
+cat("Variance cumulée expliquée:", round(cumvar_explained[ncomp_famd], 2), "%\n")
+```
+
+### 2.2 Classification avec régression logistique sur composantes FAMD
+
+```{r famd_pcr_classification}
+# Extraction des composantes FAMD
+famd_components <- famd_result$ind$coord[, 1:ncomp_famd]
+colnames(famd_components) <- paste0("FAMD_PC", 1:ncomp_famd)
+
+# Création du dataset pour la classification
+famd_data <- data.frame(famd_components, Y = df_mixed$Y)
+
+# Validation croisée 10-fold
+set.seed(12311)
+cv_folds <- createFolds(famd_data$Y, k = 10, list = TRUE, returnTrain = FALSE)
+
+# Métriques pour stocker les résultats
+famd_metrics <- data.frame(
+  Accuracy = numeric(10),
+  Sensitivity = numeric(10),
+  Specificity = numeric(10),
+  AUC = numeric(10)
+)
+
+# Validation croisée
+for(i in 1:10) {
+  # Division train/test
+  test_idx <- cv_folds[[i]]
+  train_data <- famd_data[-test_idx, ]
+  test_data <- famd_data[test_idx, ]
+  
+  # Modèle de régression logistique
+  famd_model <- glm(Y ~ ., data = train_data, family = binomial())
+  
+  # Prédictions
+  pred_prob <- predict(famd_model, test_data, type = "response")
+  pred_class <- ifelse(pred_prob > 0.5, "AML", "ALL")
+  pred_class <- factor(pred_class, levels = levels(test_data$Y))
+  
+  # Calcul des métriques
+  cm <- confusionMatrix(pred_class, test_data$Y, positive = "AML")
+  
+  famd_metrics[i, "Accuracy"] <- cm$overall["Accuracy"]
+  famd_metrics[i, "Sensitivity"] <- cm$byClass["Sensitivity"]
+  famd_metrics[i, "Specificity"] <- cm$byClass["Specificity"]
+  
+  # AUC
+  if(length(unique(test_data$Y)) > 1) {
+    roc_obj <- roc(test_data$Y, pred_prob, quiet = TRUE)
+    famd_metrics[i, "AUC"] <- auc(roc_obj)
+  } else {
+    famd_metrics[i, "AUC"] <- NA
+  }
+}
+
+# Résultats moyens FAMD-PCR
+famd_results <- colMeans(famd_metrics, na.rm = TRUE)
+cat("=== RÉSULTATS FAMD-PCR ===\n")
+cat("Nombre de composantes FAMD utilisées:", ncomp_famd, "\n")
+cat("Accuracy moyenne:", round(famd_results["Accuracy"], 3), "±", round(sd(famd_metrics$Accuracy, na.rm = TRUE), 3), "\n")
+cat("Sensitivity moyenne:", round(famd_results["Sensitivity"], 3), "±", round(sd(famd_metrics$Sensitivity, na.rm = TRUE), 3), "\n")
+cat("Specificity moyenne:", round(famd_results["Specificity"], 3), "±", round(sd(famd_metrics$Specificity, na.rm = TRUE), 3), "\n")
+cat("AUC moyenne:", round(famd_results["AUC"], 3), "±", round(sd(famd_metrics$AUC, na.rm = TRUE), 3), "\n")
+```
+
+## 3. Approche 2: PCR Classique avec encodage manuel
+
+### 3.1 Encodage des variables catégorielles
+
+```{r classical_encoding}
+# Fonction pour créer des variables dummy
+create_dummies <- function(data, target_col) {
+  # Séparer les variables numériques et catégorielles
+  num_vars <- data[, sapply(data, is.numeric)]
+  cat_vars <- data[, sapply(data, is.factor) & names(data) != target_col]
+  target_var <- data[[target_col]]
+  
+  # Encodage des variables catégorielles (sans la première modalité pour éviter colinéarité)
+  dummy_vars <- data.frame(matrix(ncol = 0, nrow = nrow(data)))
+  
+  for(col in names(cat_vars)) {
+    # Créer des variables dummy
+    dummy_matrix <- model.matrix(~ . - 1, data = data.frame(x = cat_vars[[col]]))
+    colnames(dummy_matrix) <- paste0(col, "_", colnames(dummy_matrix))
+    # Enlever la première colonne pour éviter la colinéarité parfaite
+    if(ncol(dummy_matrix) > 1) {
+      dummy_matrix <- dummy_matrix[, -1, drop = FALSE]
+    }
+    dummy_vars <- cbind(dummy_vars, dummy_matrix)
+  }
+  
+  # Encodage de la variable cible
+  target_numeric <- as.numeric(target_var == "AML")  # AML = 1, ALL = 0
+  
+  # Combinaison finale
+  result <- list(
+    X_encoded = cbind(num_vars, dummy_vars),
+    y_encoded = target_numeric,
+    y_original = target_var
+  )
+  
+  return(result)
+}
+
+# Application de l'encodage
+encoded_data <- create_dummies(df_mixed, "Y")
+X_encoded <- encoded_data$X_encoded
+y_encoded <- encoded_data$y_encoded
+y_original <- encoded_data$y_original
+
+cat("Dimensions après encodage:\n")
+cat("X encodé:", dim(X_encoded), "\n")
+cat("Variables créées par l'encodage:", ncol(X_encoded) - p_num, "\n")
+```
+
+### 3.2 PCA sur les données encodées
+
+```{r classical_pca}
+# PCA sur les données encodées
+cat("Réalisation de l'ACP sur les données encodées...\n")
+
+# Standardisation et PCA
+X_scaled <- scale(X_encoded)
+pca_result <- prcomp(X_scaled, center = FALSE, scale. = FALSE)
+
+# Variance expliquée
+pca_variance <- (pca_result$sdev^2) / sum(pca_result$sdev^2) * 100
+pca_cumvar <- cumsum(pca_variance)
+
+cat("Variance expliquée par les 10 premières composantes PCA:\n")
+print(round(pca_variance[1:10], 2))
+
+# Scree plot
+plot(1:min(20, length(pca_variance)), pca_variance[1:min(20, length(pca_variance))], 
+     type = "b", col = "red",
+     main = "Scree Plot PCA - Variance expliquée par composante", 
+     xlab = "Composante", ylab = "% Variance expliquée")
+abline(h = mean(pca_variance), col = "blue", lty = 2)
+
+# Choisir le nombre de composantes
+ncomp_pca <- which(pca_cumvar >= 80)[1]
+if (is.na(ncomp_pca)) ncomp_pca <- min(15, length(pca_variance))
+
+cat("Nombre de composantes PCA retenues:", ncomp_pca, "\n")
+cat("Variance cumulée expliquée:", round(pca_cumvar[ncomp_pca], 2), "%\n")
+```
+
+### 3.3 Classification avec régression logistique sur composantes PCA
+
+```{r classical_pcr_classification}
+# Extraction des composantes PCA
+pca_components <- pca_result$x[, 1:ncomp_pca]
+colnames(pca_components) <- paste0("PCA_PC", 1:ncomp_pca)
+
+# Création du dataset pour la classification
+pca_data <- data.frame(pca_components, Y = y_original)
+
+# Validation croisée 10-fold (mêmes folds pour comparaison équitable)
+pca_metrics <- data.frame(
+  Accuracy = numeric(10),
+  Sensitivity = numeric(10),
+  Specificity = numeric(10),
+  AUC = numeric(10)
+)
+
+# Validation croisée
+for(i in 1:10) {
+  # Division train/test (mêmes folds que FAMD)
+  test_idx <- cv_folds[[i]]
+  train_data <- pca_data[-test_idx, ]
+  test_data <- pca_data[test_idx, ]
+  
+  # Modèle de régression logistique
+  pca_model <- glm(Y ~ ., data = train_data, family = binomial())
+  
+  # Prédictions
+  pred_prob <- predict(pca_model, test_data, type = "response")
+  pred_class <- ifelse(pred_prob > 0.5, "AML", "ALL")
+  pred_class <- factor(pred_class, levels = levels(test_data$Y))
+  
+  # Calcul des métriques
+  cm <- confusionMatrix(pred_class, test_data$Y, positive = "AML")
+  
+  pca_metrics[i, "Accuracy"] <- cm$overall["Accuracy"]
+  pca_metrics[i, "Sensitivity"] <- cm$byClass["Sensitivity"]
+  pca_metrics[i, "Specificity"] <- cm$byClass["Specificity"]
+  
+  # AUC
+  if(length(unique(test_data$Y)) > 1) {
+    roc_obj <- roc(test_data$Y, pred_prob, quiet = TRUE)
+    pca_metrics[i, "AUC"] <- auc(roc_obj)
+  } else {
+    pca_metrics[i, "AUC"] <- NA
+  }
+}
+
+# Résultats moyens PCR Classique
+pca_results <- colMeans(pca_metrics, na.rm = TRUE)
+cat("=== RÉSULTATS PCR CLASSIQUE ===\n")
+cat("Nombre de composantes PCA utilisées:", ncomp_pca, "\n")
+cat("Accuracy moyenne:", round(pca_results["Accuracy"], 3), "±", round(sd(pca_metrics$Accuracy, na.rm = TRUE), 3), "\n")
+cat("Sensitivity moyenne:", round(pca_results["Sensitivity"], 3), "±", round(sd(pca_metrics$Sensitivity, na.rm = TRUE), 3), "\n")
+cat("Specificity moyenne:", round(pca_results["Specificity"], 3), "±", round(sd(pca_metrics$Specificity, na.rm = TRUE), 3), "\n")
+cat("AUC moyenne:", round(pca_results["AUC"], 3), "±", round(sd(pca_metrics$AUC, na.rm = TRUE), 3), "\n")
+```
+
+## 4. Comparaison des deux approches
+
+### 4.1 Tableau comparatif des performances
+
+```{r comparison_table}
+# Création du tableau de comparaison
+comparison_df <- data.frame(
+  Methode = c("FAMD-PCR", "PCR Classique"),
+  Nb_Composantes = c(ncomp_famd, ncomp_pca),
+  Accuracy = c(paste0(round(famd_results["Accuracy"], 3), " ± ", round(sd(famd_metrics$Accuracy, na.rm = TRUE), 3)),
+               paste0(round(pca_results["Accuracy"], 3), " ± ", round(sd(pca_metrics$Accuracy, na.rm = TRUE), 3))),
+  Sensitivity = c(paste0(round(famd_results["Sensitivity"], 3), " ± ", round(sd(famd_metrics$Sensitivity, na.rm = TRUE), 3)),
+                  paste0(round(pca_results["Sensitivity"], 3), " ± ", round(sd(pca_metrics$Sensitivity, na.rm = TRUE), 3))),
+  Specificity = c(paste0(round(famd_results["Specificity"], 3), " ± ", round(sd(famd_metrics$Specificity, na.rm = TRUE), 3)),
+                  paste0(round(pca_results["Specificity"], 3), " ± ", round(sd(pca_metrics$Specificity, na.rm = TRUE), 3))),
+  AUC = c(paste0(round(famd_results["AUC"], 3), " ± ", round(sd(famd_metrics$AUC, na.rm = TRUE), 3)),
+          paste0(round(pca_results["AUC"], 3), " ± ", round(sd(pca_metrics$AUC, na.rm = TRUE), 3)))
+)
+
+library(knitr)
+kable(comparison_df, caption = "Comparaison des performances FAMD-PCR vs PCR Classique")
+```
+
+### 4.2 Visualisations comparatives
+
+```{r comparison_plots}
+# Graphique de comparaison des Scree plots
+par(mfrow = c(1, 2))
+
+# Scree plot FAMD
+plot(1:min(15, length(variance_explained)), variance_explained[1:min(15, length(variance_explained))], 
+     type = "b", col = "blue", main = "FAMD - Variance expliquée", 
+     xlab = "Composante", ylab = "% Variance", ylim = c(0, max(variance_explained[1:15], na.rm = TRUE)))
+abline(v = ncomp_famd, col = "blue", lty = 2)
+
+# Scree plot PCA
+plot(1:min(15, length(pca_variance)), pca_variance[1:min(15, length(pca_variance))], 
+     type = "b", col = "red", main = "PCA - Variance expliquée", 
+     xlab = "Composante", ylab = "% Variance", ylim = c(0, max(pca_variance[1:15], na.rm = TRUE)))
+abline(v = ncomp_pca, col = "red", lty = 2)
+
+par(mfrow = c(1, 1))
+
+# Boxplots de comparaison des performances
+metrics_long <- data.frame(
+  Methode = rep(c("FAMD-PCR", "PCR Classique"), each = 10),
+  Accuracy = c(famd_metrics$Accuracy, pca_metrics$Accuracy),
+  AUC = c(famd_metrics$AUC, pca_metrics$AUC)
+)
+
+# Graphique des performances
+library(ggplot2)
+library(reshape2)
+
+metrics_melted <- melt(metrics_long, id.vars = "Methode")
+
+ggplot(metrics_melted, aes(x = Methode, y = value, fill = Methode)) +
+  geom_boxplot(alpha = 0.7) +
+  facet_wrap(~ variable, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Comparaison des performances par validation croisée",
+       y = "Valeur de la métrique",
+       x = "Méthode") +
+  theme(legend.position = "bottom")
+```
+
+### 4.3 Analyse de la sparsité et des coefficients
+
+```{r sparsity_analysis}
+# Analyse de la complexité des modèles
+
+# Pour FAMD-PCR: analyser les contributions des variables aux composantes
+cat("=== ANALYSE DE LA COMPLEXITÉ ===\n")
+cat("FAMD-PCR:\n")
+cat("- Variables numériques impliquées:", p_num, "\n")
+cat("- Variables catégorielles impliquées:", p_cat, "\n")
+cat("- Total variables originales:", p_num + p_cat, "\n")
+cat("- Composantes utilisées:", ncomp_famd, "\n")
+cat("- Réduction de dimension:", round((1 - ncomp_famd/(p_num + p_cat)) * 100, 1), "%\n\n")
+
+cat("PCR Classique:\n")
+cat("- Variables après encodage:", ncol(X_encoded), "\n")
+cat("- Variables catégorielles encodées:", ncol(X_encoded) - p_num, "\n")
+cat("- Composantes utilisées:", ncomp_pca, "\n")
+cat("- Réduction de dimension:", round((1 - ncomp_pca/ncol(X_encoded)) * 100, 1), "%\n\n")
+
+# Efficacité de la réduction
+cat("Efficacité de la réduction dimensionnelle:\n")
+cat("- FAMD-PCR: de", p_num + p_cat, "variables à", ncomp_famd, "composantes\n")
+cat("- PCR Classique: de", ncol(X_encoded), "variables à", ncomp_pca, "composantes\n")
+```
+
+## 5. Conclusions et recommandations
+
+### 5.1 Analyse des résultats
+
+```{r conclusions}
+cat("=== SYNTHÈSE COMPARATIVE ===\n\n")
+
+# Comparaison directe des performances moyennes
+cat("Performance comparative:\n")
+if (famd_results["Accuracy"] > pca_results["Accuracy"]) {
+  cat("✓ FAMD-PCR présente une meilleure accuracy moyenne\n")
+} else {
+  cat("✓ PCR Classique présente une meilleure accuracy moyenne\n")
+}
+
+if (famd_results["AUC"] > pca_results["AUC"]) {
+  cat("✓ FAMD-PCR présente un meilleur AUC moyen\n")
+} else {
+  cat("✓ PCR Classique présente un meilleur AUC moyen\n")
+}
+
+cat("\nComplexité computationnelle:\n")
+cat("- FAMD-PCR traite directement les données mixtes\n")
+cat("- PCR Classique nécessite un préprocessing d'encodage\n")
+
+cat("\nInterprétabilité:\n")
+cat("- FAMD-PCR conserve l'information catégorielle dans les composantes\n")
+cat("- PCR Classique transforme tout en numérique, perd l'aspect catégoriel\n")
+
+cat("\nRobustesse:\n")
+cat("- FAMD-PCR: méthode spécialisée pour données mixtes\n")
+cat("- PCR Classique: méthode générale mais nécessite encodage approprié\n")
+```
+
+### 5.2 Recommandations pratiques
+
+**Quand utiliser FAMD-PCR:**
+- Données avec un mélange significatif de variables numériques et catégorielles
+- Besoin de préserver la nature catégorielle des variables
+- Interprétation des composantes importantes
+
+**Quand utiliser PCR Classique:**
+- Majorité de variables numériques
+- Variables catégorielles avec peu de modalités
+- Compatibilité avec des pipelines de ML existants
+
+**Limites de l'étude:**
+- Jeu de données simulé relativement petit (n=72)
+- Nombre limité de variables catégorielles
+- Validation sur un seul type de problème (classification binaire)
+
+Les deux approches montrent des performances comparables, avec des avantages spécifiques selon le contexte d'application et la nature des données mixtes.
