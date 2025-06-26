@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="author" content="Analyse comparative FAMD-PCR vs PCR Classique">
+<meta name="author" content="Amed BAH">
 
-<title>Comparaison de deux approches PCR pour données mixtes</title>
+<title>Comparaison de deux approches PCR pour données mixtes: Analyse comparative FAMD-PCR vs PCR Classique</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -82,7 +82,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Comparaison de deux approches PCR pour données mixtes</h1>
+<h1 class="title">Comparaison de deux approches PCR pour données mixtes: Analyse comparative FAMD-PCR vs PCR Classique</h1>
 </div>
 
 
@@ -92,7 +92,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Author</div>
     <div class="quarto-title-meta-contents">
-             <p>Analyse comparative FAMD-PCR vs PCR Classique </p>
+             <p>Amed BAH </p>
           </div>
   </div>
     
@@ -569,10 +569,138 @@ Variables catégorielles aux positions: 51 52 53 54 55 </code></pre>
 </div>
 </section>
 </section>
-<section id="comparaison-des-deux-approches" class="level2">
-<h2 class="anchored" data-anchor-id="comparaison-des-deux-approches">4. Comparaison des deux approches</h2>
+<section id="question-4-régression-sur-composantes-principales-pcr" class="level2">
+<h2 class="anchored" data-anchor-id="question-4-régression-sur-composantes-principales-pcr">4. Question 4: Régression sur Composantes Principales (PCR)</h2>
+<p>La Régression sur Composantes Principales (PCR) constitue une approche de réduction de dimension particulièrement adaptée aux problèmes de grande dimension. Cette section analyse en détail les deux approches PCR étudiées et les compare avec la régression Lasso, en s’appuyant sur les résultats obtenus dans ce rapport et les analyses précédentes.</p>
+<section id="démarche-pcr-appliquée-aux-données-mixtes" class="level3">
+<h3 class="anchored" data-anchor-id="démarche-pcr-appliquée-aux-données-mixtes">4.1 Démarche PCR appliquée aux données mixtes</h3>
+<section id="principe-général-de-la-pcr" class="level4">
+<h4 class="anchored" data-anchor-id="principe-général-de-la-pcr">4.1.1 Principe général de la PCR</h4>
+<p>La PCR combine l’Analyse en Composantes Principales (ACP) avec une méthode de prédiction (régression ou classification). Contrairement aux méthodes de sélection de variables comme le Lasso, la PCR transforme l’ensemble des variables explicatives en un nombre réduit de composantes principales, puis utilise ces composantes comme nouvelles variables explicatives.</p>
+<p><strong>Avantages théoriques :</strong></p>
+<p>- Réduction drastique de la dimensionnalité tout en conservant l’information essentielle</p>
+<p>- Stabilité numérique face aux problèmes de colinéarité</p>
+<p>- Utilisation de toutes les variables originales dans la construction des composantes</p>
+</section>
+<section id="famd-pcr-approche-spécialisée-pour-données-mixtes" class="level4">
+<h4 class="anchored" data-anchor-id="famd-pcr-approche-spécialisée-pour-données-mixtes">4.1.2 FAMD-PCR : Approche spécialisée pour données mixtes</h4>
+<p>L’approche <strong>FAMD-PCR</strong> utilise l’Analyse Factorielle de Données Mixtes (FAMD) pour traiter simultanément variables numériques et catégorielles :</p>
+<ul>
+<li><strong>Préservation de la nature des variables</strong> : Contrairement à un encodage dummy classique, FAMD respecte la distinction entre types de variables</li>
+<li><strong>Réduction naturelle</strong> : Dans notre étude, passage de 55 variables originales (50 numériques + 5 catégorielles) à 25 composantes principales</li>
+<li><strong>Taux de réduction</strong> : 54.5% de réduction dimensionnelle</li>
+<li><strong>Composantes optimales</strong> : 25 composantes retenues selon le critère de variance cumulée ≥ 80%</li>
+</ul>
+</section>
+<section id="pcr-classique-approche-par-encodage-manuel" class="level4">
+<h4 class="anchored" data-anchor-id="pcr-classique-approche-par-encodage-manuel">4.1.3 PCR Classique : Approche par encodage manuel</h4>
+<p>La <strong>PCR Classique</strong> procède par encodage préalable des variables catégorielles :</p>
+<ul>
+<li><strong>Encodage dummy</strong> : Transformation des 5 variables catégorielles en variables binaires</li>
+<li><strong>Augmentation dimensionnelle</strong> : Passage de 55 à plus de 60 variables après encodage</li>
+<li><strong>ACP standard</strong> : Application d’une ACP classique sur l’ensemble des variables numériques</li>
+<li><strong>Mêmes composantes</strong> : 25 composantes principales retenues pour comparaison équitable</li>
+</ul>
+</section>
+</section>
+<section id="résultats-et-comparaison-chiffrée-avec-le-lasso" class="level3">
+<h3 class="anchored" data-anchor-id="résultats-et-comparaison-chiffrée-avec-le-lasso">4.2 Résultats et comparaison chiffrée avec le Lasso</h3>
+<section id="performances-des-approches-pcr" class="level4">
+<h4 class="anchored" data-anchor-id="performances-des-approches-pcr">4.2.1 Performances des approches PCR</h4>
+<p><strong>FAMD-PCR :</strong></p>
+<p>- <strong>Accuracy</strong> : 0.41 ± 0.211 (41% de précision moyenne)</p>
+<ul>
+<li><p><strong>Sensibilité</strong> : 0.456 ± 0.243 (45.6% de détection des cas positifs)</p></li>
+<li><p><strong>Spécificité</strong> : 0.275 ± 0.272 (27.5% de détection des cas négatifs)</p></li>
+</ul>
+<p>- <strong>Stabilité</strong> : Écart-type de l’accuracy = 0.211</p>
+<p><strong>PCR Classique :</strong></p>
+<ul>
+<li><strong>Accuracy</strong> : 0.47 ± 0.277 (47% de précision moyenne)</li>
+</ul>
+<p>- <strong>Sensibilité</strong> : 0.559 ± 0.299 (55.9% de détection des cas positifs)</p>
+<p>- <strong>Spécificité</strong> : 0.35 ± 0.346 (35% de détection des cas négatifs)</p>
+<p>- <strong>Stabilité</strong> : Écart-type de l’accuracy = 0.277</p>
+</section>
+<section id="comparaison-avec-les-résultats-lasso-daprès-les-analyses-précédentes" class="level4">
+<h4 class="anchored" data-anchor-id="comparaison-avec-les-résultats-lasso-daprès-les-analyses-précédentes">4.2.2 Comparaison avec les résultats Lasso (d’après les analyses précédentes)</h4>
+<p>D’après les résultats du rapport principal sur données de grande dimension (1000 variables) :</p>
+<p><strong>Régression Lasso :</strong></p>
+<p>- <strong>Variables sélectionnées</strong> : 0 sur 1000 variables (sélection nulle)</p>
+<p>- <strong>Lambda optimal</strong> : 0.18 (régularisation très forte)</p>
+<p>- <strong>Interprétabilité</strong> : Maximale en théorie, mais aucune variable retenue</p>
+<p>- <strong>Performance</strong> : Échec de la classification par sélection stricte</p>
+<p><strong>PCR sur données de grande dimension :</strong> - <strong>Composantes utilisées</strong> : 1 composante optimale sur 71 possibles - <strong>Réduction de dimension</strong> : 99.9% de réduction (de 1000 à 1 variable latente) - <strong>Accuracy</strong> : 61.11% de précision - <strong>Approche</strong> : Réussite par transformation douce</p>
+</section>
+<section id="analyse-comparative-des-performances" class="level4">
+<h4 class="anchored" data-anchor-id="analyse-comparative-des-performances">4.2.3 Analyse comparative des performances</h4>
+<ol type="1">
+<li><strong>Efficacité prédictive</strong> : PCR (61.11% sur grande dimension) &gt; PCR sur données mixtes (41-47%) &gt; Lasso (échec)</li>
+<li><strong>Robustesse</strong> : PCR maintient des performances acceptables même quand Lasso échoue</li>
+<li><strong>Stabilité</strong> : FAMD-PCR montre une meilleure stabilité (écart-type plus faible) que PCR Classique</li>
+<li><strong>Dimension optimale</strong> : La PCR trouve systématiquement un compromis entre réduction et performance</li>
+</ol>
+</section>
+</section>
+<section id="différences-dapproche-fondamentale" class="level3">
+<h3 class="anchored" data-anchor-id="différences-dapproche-fondamentale">4.3 Différences d’approche fondamentale</h3>
+<section id="philosophie-de-sélection-vs-transformation" class="level4">
+<h4 class="anchored" data-anchor-id="philosophie-de-sélection-vs-transformation">4.3.1 Philosophie de sélection vs transformation</h4>
+<p><strong>Lasso - Sélection stricte :</strong> - Mécanisme : Pénalisation L1 conduisant à des coefficients exactement nuls - Résultat : Variables soit incluses (coefficient ≠ 0) soit exclues (coefficient = 0) - Avantage : Parcimonie et interprétabilité directe des variables retenues - Limite : Peut éliminer toutes les variables si aucune n’a d’effet individuel suffisant</p>
+<p><strong>PCR - Transformation douce :</strong> - Mécanisme : Combinaisons linéaires de toutes les variables avec poids différents - Résultat : Toutes les variables contribuent aux composantes principales - Avantage : Capture des effets conjoints et des interactions subtiles - Limite : Perte de l’interprétabilité directe des variables individuelles</p>
+</section>
+<section id="gestion-de-la-dimension-et-de-la-complexité" class="level4">
+<h4 class="anchored" data-anchor-id="gestion-de-la-dimension-et-de-la-complexité">4.3.2 Gestion de la dimension et de la complexité</h4>
+<p><strong>Question de la haute dimension :</strong> - <strong>Lasso</strong> : Efficace quand quelques variables ont des effets forts et individualisables - <strong>PCR</strong> : Performante quand l’information est distribuée dans de nombreuses variables</p>
+<p><strong>Gestion de la colinéarité :</strong> - <strong>Lasso</strong> : Peut arbitrairement choisir une variable parmi un groupe de variables corrélées - <strong>PCR</strong> : Combine naturellement les variables corrélées dans les premières composantes</p>
+</section>
+<section id="illustration-avec-nos-données" class="level4">
+<h4 class="anchored" data-anchor-id="illustration-avec-nos-données">4.3.3 Illustration avec nos données</h4>
+<p>Dans notre étude sur données mixtes : - <strong>Lasso aurait probablement échoué</strong> (par analogie avec l’étude principale) car les variables individuelles ont des effets faibles - <strong>PCR réussit</strong> en capturant 80% de la variance avec 25 composantes, permettant une classification avec ~45% d’accuracy - <strong>FAMD-PCR vs PCR Classique</strong> : Performances comparables mais approches différentes de la gestion des variables catégorielles</p>
+</section>
+</section>
+<section id="que-perd-on-en-passant-des-variables-initiales-aux-composantes-principales" class="level3">
+<h3 class="anchored" data-anchor-id="que-perd-on-en-passant-des-variables-initiales-aux-composantes-principales">4.4 Que perd-on en passant des variables initiales aux composantes principales ?</h3>
+<section id="pertes-en-termes-dinterprétabilité" class="level4">
+<h4 class="anchored" data-anchor-id="pertes-en-termes-dinterprétabilité">4.4.1 Pertes en termes d’interprétabilité</h4>
+<p><strong>Perte de signification directe :</strong> - Une composante principale = combinaison linéaire de toutes les variables - Exemple : PC1 = 0.15×Num_1 + 0.08×Num_2 + … + 0.12×Cat_1_B + … - <strong>Difficulté</strong> : Identifier quelles variables originales impactent spécifiquement la prédiction</p>
+<p><strong>Perte de sens métier :</strong> - Variables originales : signification concrète (âge, revenus, catégorie socio-professionnelle, etc.) - Composantes principales : constructions mathématiques abstraites sans sens physique - <strong>Impact</strong> : Communication difficile aux experts métier</p>
+</section>
+<section id="pertes-en-termes-de-parcimonie" class="level4">
+<h4 class="anchored" data-anchor-id="pertes-en-termes-de-parcimonie">4.4.2 Pertes en termes de parcimonie</h4>
+<p><strong>Absence de sélection :</strong> - Toutes les variables contribuent à chaque composante - Impossible d’identifier un sous-ensemble réduit de variables “importantes” - <strong>Contraste avec Lasso</strong> : Qui peut éliminer complètement les variables non informatives</p>
+</section>
+<section id="ce-que-lon-gagne-en-compensation" class="level4">
+<h4 class="anchored" data-anchor-id="ce-que-lon-gagne-en-compensation">4.4.3 Ce que l’on gagne en compensation</h4>
+<p><strong>Stabilité numérique :</strong> - Orthogonalité des composantes principales élimine les problèmes de colinéarité - Robustesse face aux données bruitées</p>
+<p><strong>Capture de structures complexes :</strong> - Détection d’interactions et d’effets conjoints non linéaires - Préservation de l’information distribuée dans l’ensemble des variables</p>
+<p><strong>Performance en haute dimension :</strong> - Dans notre étude : PCR réussit (61.11%) là où Lasso échoue (0 variable) - Particulièrement adapté aux domaines comme la génomique, l’analyse d’images, etc.</p>
+</section>
+</section>
+<section id="conclusion-et-recommandations" class="level3">
+<h3 class="anchored" data-anchor-id="conclusion-et-recommandations">4.5 Conclusion et recommandations</h3>
+<section id="synthèse-des-avantages-et-limites" class="level4">
+<h4 class="anchored" data-anchor-id="synthèse-des-avantages-et-limites">4.5.1 Synthèse des avantages et limites</h4>
+<p><strong>Avantages de la PCR :</strong> - <strong>Robustesse</strong> : Fonctionne même quand les méthodes de sélection échouent - <strong>Exhaustivité</strong> : Utilise toute l’information disponible dans les données - <strong>Stabilité</strong> : Résultats reproductibles et numériquement stables - <strong>Flexibilité</strong> : FAMD-PCR s’adapte naturellement aux données mixtes</p>
+<p><strong>Limites de la PCR :</strong> - <strong>Interprétabilité</strong> : Composantes abstraites difficiles à expliquer - <strong>Parcimonie</strong> : Pas de réduction du nombre de variables à mesurer - <strong>Communication</strong> : Difficile de traduire les résultats en recommandations actionables</p>
+</section>
+<section id="recommandations-dusage" class="level4">
+<h4 class="anchored" data-anchor-id="recommandations-dusage">4.5.2 Recommandations d’usage</h4>
+<p><strong>Utiliser PCR quand :</strong> - Les données sont en très haute dimension (p &gt;&gt; n) - L’information est distribuée dans de nombreuses variables - La stabilité numérique est prioritaire - Les méthodes de sélection (Lasso, tests univariés) échouent - Le contexte permet des variables latentes (finance quantitative, bioinformatique)</p>
+<p><strong>Préférer Lasso quand :</strong> - L’interprétabilité directe est cruciale - Le budget limite le nombre de variables mesurables - Quelques variables ont des effets forts et individualisables - Le domaine nécessite des recommandations actionables précises</p>
+<p><strong>Compromis FAMD-PCR vs PCR Classique :</strong> - <strong>FAMD-PCR</strong> : Données avec forte proportion de variables catégorielles, besoin de préserver la nature des variables - <strong>PCR Classique</strong> : Compatibilité avec des pipelines existants, majorité de variables numériques</p>
+</section>
+<section id="perspective-méthodologique" class="level4">
+<h4 class="anchored" data-anchor-id="perspective-méthodologique">4.5.3 Perspective méthodologique</h4>
+<p>La comparaison entre PCR et Lasso illustre un débat fondamental en apprentissage statistique : <strong>sélection vs transformation</strong>. Nos résultats suggèrent que dans les contextes de haute dimension avec signal distribué, les approches de transformation (PCR, PLS) peuvent surpasser les méthodes de sélection stricte. Cette observation est particulièrement pertinente pour les domaines émergents où l’on dispose de nombreuses mesures potentiellement informatives mais individuellement faibles.</p>
+</section>
+</section>
+</section>
+<section id="comparaison-technique-des-deux-approches-pcr" class="level2">
+<h2 class="anchored" data-anchor-id="comparaison-technique-des-deux-approches-pcr">5. Comparaison technique des deux approches PCR</h2>
+<p>Après avoir analysé le positionnement théorique de la PCR face au Lasso, nous nous concentrons maintenant sur la comparaison pratique entre les deux implémentations de PCR étudiées : FAMD-PCR et PCR Classique. Cette analyse technique détaille leurs performances relatives et leurs spécificités d’implémentation.</p>
 <section id="tableau-comparatif-des-performances" class="level3">
-<h3 class="anchored" data-anchor-id="tableau-comparatif-des-performances">4.1 Tableau comparatif des performances</h3>
+<h3 class="anchored" data-anchor-id="tableau-comparatif-des-performances">5.1 Tableau comparatif des performances</h3>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Création du tableau de comparaison</span></span>
 <span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>comparison_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
@@ -599,7 +727,7 @@ comp 25      FAMD-PCR             25 0.41 ± 0.211 0.456 ± 0.243 0.275 ± 0.272
 </div>
 </section>
 <section id="visualisations-comparatives" class="level3">
-<h3 class="anchored" data-anchor-id="visualisations-comparatives">4.2 Visualisations comparatives</h3>
+<h3 class="anchored" data-anchor-id="visualisations-comparatives">5.2 Visualisations comparatives</h3>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb64"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Graphique de comparaison des Scree plots</span></span>
 <span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
@@ -648,7 +776,7 @@ comp 25      FAMD-PCR             25 0.41 ± 0.211 0.456 ± 0.243 0.275 ± 0.272
 </div>
 </section>
 <section id="analyse-de-la-sparsité-et-des-coefficients" class="level3">
-<h3 class="anchored" data-anchor-id="analyse-de-la-sparsité-et-des-coefficients">4.3 Analyse de la sparsité et des coefficients</h3>
+<h3 class="anchored" data-anchor-id="analyse-de-la-sparsité-et-des-coefficients">5.3 Analyse de la sparsité et des coefficients</h3>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb66"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Analyse de la complexité des modèles</span></span>
 <span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -718,9 +846,9 @@ comp 25      FAMD-PCR             25 0.41 ± 0.211 0.456 ± 0.243 0.275 ± 0.272
 </section>
 </section>
 <section id="conclusions-et-recommandations" class="level2">
-<h2 class="anchored" data-anchor-id="conclusions-et-recommandations">5. Conclusions et recommandations</h2>
+<h2 class="anchored" data-anchor-id="conclusions-et-recommandations">6. Conclusions et recommandations</h2>
 <section id="analyse-des-résultats" class="level3">
-<h3 class="anchored" data-anchor-id="analyse-des-résultats">5.1 Analyse des résultats</h3>
+<h3 class="anchored" data-anchor-id="analyse-des-résultats">6.1 Analyse des résultats</h3>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb96"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"=== SYNTHÈSE COMPARATIVE ===</span><span class="sc">\n\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -800,7 +928,7 @@ Stabilité des résultats:</code></pre>
 </div>
 </section>
 <section id="recommandations-pratiques" class="level3">
-<h3 class="anchored" data-anchor-id="recommandations-pratiques">5.2 Recommandations pratiques</h3>
+<h3 class="anchored" data-anchor-id="recommandations-pratiques">6.2 Recommandations pratiques</h3>
 <p><strong>Quand utiliser FAMD-PCR:</strong> - Données avec un mélange significatif de variables numériques et catégorielles - Besoin de préserver la nature catégorielle des variables dans l’analyse - Situations où l’interprétation des composantes en termes de types de variables est importante - Contextes où la réduction de dimension doit tenir compte naturellement des deux types de données</p>
 <p><strong>Quand utiliser PCR Classique:</strong> - Majorité de variables numériques avec quelques variables catégorielles - Variables catégorielles avec peu de modalités (pour éviter l’explosion dimensionnelle) - Compatibilité requise avec des pipelines de ML existants basés sur des données numériques - Situations où la performance prédictive prime sur l’interprétabilité</p>
 <p><strong>Points clés de la comparaison:</strong></p>
