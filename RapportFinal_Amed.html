@@ -2820,55 +2820,69 @@ f1_score       f1_score  0.6730     0.1868</code></pre>
 <h3 class="anchored" data-anchor-id="analyse-et-interprétation-des-résultats">6.5 Analyse et interprétation des résultats</h3>
 <section id="performance-comparative-observée" class="level4">
 <h4 class="anchored" data-anchor-id="performance-comparative-observée">Performance comparative observée</h4>
-<p>Les résultats de validation croisée révèlent une hiérarchie claire des performances :</p>
+<p>Les résultats de validation croisée révèlent une hiérarchie nuancée des performances avec des différences modérées entre les méthodes :</p>
 <ol type="1">
-<li><strong>Gradient Boosting</strong> : Meilleure performance globale
+<li><strong>Régression Logistique Ridge</strong> : Performance légèrement supérieure
 <ul>
-<li>Capacité d’apprentissage séquentiel particulièrement adaptée aux patterns complexes</li>
-<li>Optimisation itérative des erreurs efficace en grande dimension</li>
+<li><strong>Accuracy</strong> : 58,21% (± 2,26%), la plus élevée des trois méthodes</li>
+<li><strong>Sensibilité</strong> : 100,0% (± 0%), détection parfaite de la classe AML</li>
+<li><strong>Spécificité</strong> : 0,0% (± 0%), incapacité totale à détecter la classe ALL</li>
+<li><strong>F1-score</strong> : 73,57% (± 1,77%), score équilibré le plus élevé</li>
+<li>Modèle stable (écart-type faible) mais avec un biais vers la classe majoritaire</li>
 </ul></li>
-<li><strong>Forêt Aléatoire</strong> : Bon compromis performance/stabilité
+<li><strong>Gradient Boosting</strong> : Performance intermédiaire avec meilleur équilibre
 <ul>
-<li>Mécanismes intégrés de gestion de la grande dimension (sélection aléatoire de variables)</li>
-<li>Robustesse élevée grâce à l’agrégation de modèles</li>
+<li><strong>Accuracy</strong> : 57,86% (± 20,55%), performance proche de la régression logistique</li>
+<li><strong>Sensibilité</strong> : 78,00% (± 24,86%), bonne détection de la classe AML</li>
+<li><strong>Spécificité</strong> : 30,00% (± 24,60%), seule méthode avec spécificité non-nulle</li>
+<li><strong>F1-score</strong> : 67,30% (± 18,68%), équilibre acceptable entre précision et rappel</li>
+<li>Variabilité élevée mais capacité unique à discriminer les deux classes</li>
 </ul></li>
-<li><strong>Régression Logistique Ridge</strong> : Performance limitée mais interprétable
+<li><strong>Forêt Aléatoire</strong> : Performance la plus faible malgré sa robustesse théorique
 <ul>
-<li>Contraintes de la linéarité en contexte de grande dimension</li>
-<li>Régularisation Ridge insuffisante face au ratio p &gt;&gt; n</li>
+<li><strong>Accuracy</strong> : 56,79% (± 5,38%), légèrement inférieure aux autres méthodes</li>
+<li><strong>Sensibilité</strong> : 97,50% (± 7,91%), excellente détection de la classe AML</li>
+<li><strong>Spécificité</strong> : 0,0% (± 0%), échec complet sur la classe ALL</li>
+<li><strong>F1-score</strong> : 72,29% (± 4,66%), performance intermédiaire stable</li>
+<li>Comportement similaire à la régression logistique avec biais vers AML</li>
 </ul></li>
 </ol>
 </section>
 <section id="adaptation-spécifique-à-la-grande-dimension" class="level4">
 <h4 class="anchored" data-anchor-id="adaptation-spécifique-à-la-grande-dimension">Adaptation spécifique à la grande dimension</h4>
-<p>Notre contexte p &gt;&gt; n (1000 variables, 72 observations) met en évidence :</p>
+<p>Notre contexte p &gt;&gt; n (1000 variables, 72 observations) révèle des défis particuliers mis en évidence par les résultats quantitatifs :</p>
 <ul>
-<li><strong>Supériorité des méthodes d’ensemble</strong> : RF et GBM surpassent nettement la régression logistique</li>
-<li><strong>Importance de la régularisation implicite</strong> : Les mécanismes intégrés des méthodes d’ensemble compensent efficacement la malédiction de la dimension</li>
-<li><strong>Limites des approches linéaires</strong> : Même avec régularisation Ridge, la régression logistique reste limitée face à la complexité des interactions possibles</li>
+<li><p><strong>Défi du déséquilibre des classes</strong> : Avec 58,3% d’échantillons AML vs 41,7% d’ALL, toutes les méthodes montrent un biais systématique vers la classe majoritaire (spécificité nulle pour RF et régression logistique)</p></li>
+<li><p><strong>Efficacité variable des stratégies de régularisation</strong> :</p>
+<ul>
+<li>La régularisation Ridge (λ optimal = 0,18) permet une stabilité remarquable (écart-type accuracy = 2,26%) mais au prix d’un biais complet</li>
+<li>Le gradient boosting, malgré sa variabilité élevée (écart-type = 20,55%), est la seule méthode atteignant une spécificité mesurable (30%)</li>
+<li>La forêt aléatoire, théoriquement robuste, reproduit les limitations de la régression logistique</li>
+</ul></li>
+<li><p><strong>Impact du ratio p &gt;&gt; n confirmé numériquement</strong> : L’écart modéré entre les performances (maximum 1,42 points d’accuracy entre meilleure et moins bonne méthode) suggère que toutes les méthodes sont limitées par la dimension excessive relative à la taille d’échantillon</p></li>
 </ul>
 </section>
 <section id="synthèse-comparative" class="level4">
 <h4 class="anchored" data-anchor-id="synthèse-comparative">Synthèse comparative</h4>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb93"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Tableau de comparaison qualitative adapté aux résultats</span></span>
+<div class="sourceCode cell-code" id="cb93"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Tableau de comparaison quantitative basé sur nos résultats empiriques</span></span>
 <span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a>comparison_final <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a>  Critère <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Performance"</span>, <span class="st">"Interprétabilité"</span>, <span class="st">"Stabilité"</span>, <span class="st">"Complexité"</span>, <span class="st">"Temps de calcul"</span>),</span>
-<span id="cb93-4"><a href="#cb93-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Régression Logistique</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Modérée"</span>, <span class="st">"Très élevée"</span>, <span class="st">"Modérée"</span>, <span class="st">"Faible"</span>, <span class="st">"Rapide"</span>),</span>
-<span id="cb93-5"><a href="#cb93-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Forêt Aléatoire</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Bonne"</span>, <span class="st">"Modérée"</span>, <span class="st">"Élevée"</span>, <span class="st">"Modérée"</span>, <span class="st">"Modéré"</span>),</span>
-<span id="cb93-6"><a href="#cb93-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Gradient Boosting</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Très bonne"</span>, <span class="st">"Faible"</span>, <span class="st">"Modérée"</span>, <span class="st">"Élevée"</span>, <span class="st">"Lent"</span>),</span>
+<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a>  Critère <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Accuracy (%)"</span>, <span class="st">"Stabilité (écart-type)"</span>, <span class="st">"Sensibilité (%)"</span>, <span class="st">"Spécificité (%)"</span>, <span class="st">"F1-score (%)"</span>),</span>
+<span id="cb93-4"><a href="#cb93-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Régression Logistique</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"58,21"</span>, <span class="st">"0,023"</span>, <span class="st">"100,0"</span>, <span class="st">"0,0"</span>, <span class="st">"73,57"</span>),</span>
+<span id="cb93-5"><a href="#cb93-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Forêt Aléatoire</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"56,79"</span>, <span class="st">"0,054"</span>, <span class="st">"97,5"</span>, <span class="st">"0,0"</span>, <span class="st">"72,29"</span>),</span>
+<span id="cb93-6"><a href="#cb93-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Gradient Boosting</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"57,86"</span>, <span class="st">"0,206"</span>, <span class="st">"78,0"</span>, <span class="st">"30,0"</span>, <span class="st">"67,30"</span>),</span>
 <span id="cb93-7"><a href="#cb93-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
 <span id="cb93-8"><a href="#cb93-8" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb93-9"><a href="#cb93-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb93-10"><a href="#cb93-10" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(comparison_final, <span class="at">caption =</span> <span class="st">"Synthèse comparative adaptée aux résultats obtenus"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb93-10"><a href="#cb93-10" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(comparison_final, <span class="at">caption =</span> <span class="st">"Synthèse comparative quantitative des résultats obtenus"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
-<caption>Synthèse comparative adaptée aux résultats obtenus</caption>
+<caption>Synthèse comparative quantitative des résultats obtenus</caption>
 <colgroup>
-<col style="width: 23%">
-<col style="width: 30%">
-<col style="width: 21%">
-<col style="width: 24%">
+<col style="width: 29%">
+<col style="width: 27%">
+<col style="width: 20%">
+<col style="width: 22%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -2880,34 +2894,34 @@ f1_score       f1_score  0.6730     0.1868</code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">Performance</td>
-<td style="text-align: left;">Modérée</td>
-<td style="text-align: left;">Bonne</td>
-<td style="text-align: left;">Très bonne</td>
+<td style="text-align: left;">Accuracy (%)</td>
+<td style="text-align: left;">58,21</td>
+<td style="text-align: left;">56,79</td>
+<td style="text-align: left;">57,86</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Interprétabilité</td>
-<td style="text-align: left;">Très élevée</td>
-<td style="text-align: left;">Modérée</td>
-<td style="text-align: left;">Faible</td>
+<td style="text-align: left;">Stabilité (écart-type)</td>
+<td style="text-align: left;">0,023</td>
+<td style="text-align: left;">0,054</td>
+<td style="text-align: left;">0,206</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Stabilité</td>
-<td style="text-align: left;">Modérée</td>
-<td style="text-align: left;">Élevée</td>
-<td style="text-align: left;">Modérée</td>
+<td style="text-align: left;">Sensibilité (%)</td>
+<td style="text-align: left;">100,0</td>
+<td style="text-align: left;">97,5</td>
+<td style="text-align: left;">78,0</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Complexité</td>
-<td style="text-align: left;">Faible</td>
-<td style="text-align: left;">Modérée</td>
-<td style="text-align: left;">Élevée</td>
+<td style="text-align: left;">Spécificité (%)</td>
+<td style="text-align: left;">0,0</td>
+<td style="text-align: left;">0,0</td>
+<td style="text-align: left;">30,0</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Temps de calcul</td>
-<td style="text-align: left;">Rapide</td>
-<td style="text-align: left;">Modéré</td>
-<td style="text-align: left;">Lent</td>
+<td style="text-align: left;">F1-score (%)</td>
+<td style="text-align: left;">73,57</td>
+<td style="text-align: left;">72,29</td>
+<td style="text-align: left;">67,30</td>
 </tr>
 </tbody>
 </table>
@@ -2916,35 +2930,41 @@ f1_score       f1_score  0.6730     0.1868</code></pre>
 </section>
 <section id="recommandations-pratiques" class="level4">
 <h4 class="anchored" data-anchor-id="recommandations-pratiques">Recommandations pratiques</h4>
-<p>Selon les résultats obtenus dans notre contexte spécifique :</p>
+<p>Selon les résultats quantitatifs obtenus dans notre contexte spécifique :</p>
 <ol type="1">
-<li><strong>Pour la performance pure</strong> : <strong>Gradient Boosting</strong>
+<li><strong>Pour la performance brute</strong> : <strong>Régression Logistique Ridge</strong>
 <ul>
-<li>Meilleure accuracy moyenne</li>
-<li>Capacité d’apprentissage séquentiel efficace en grande dimension</li>
+<li>Accuracy la plus élevée : <strong>58,21%</strong> vs 57,86% (GBM) et 56,79% (RF)</li>
+<li>Stabilité exceptionnelle : écart-type de seulement <strong>2,26%</strong></li>
+<li>F1-score optimal : <strong>73,57%</strong>, meilleur équilibre précision-rappel</li>
+<li><strong>Limitation critique</strong> : spécificité nulle (0%), inutilisable si la détection de la classe ALL est prioritaire</li>
 </ul></li>
-<li><strong>Pour l’équilibre performance/robustesse</strong> : <strong>Forêt Aléatoire</strong>
+<li><strong>Pour la discrimination équilibrée</strong> : <strong>Gradient Boosting</strong>
 <ul>
-<li>Bon compromis entre performance et stabilité</li>
-<li>Gestion naturelle de la grande dimension</li>
-<li>Moins sensible aux hyperparamètres</li>
+<li><strong>Seule méthode avec spécificité mesurable</strong> : 30,00% vs 0,0% pour les autres</li>
+<li>Sensibilité équilibrée : <strong>78,00%</strong>, évitant le biais extrême vers AML</li>
+<li>Performance globale acceptable : <strong>57,86%</strong> d’accuracy</li>
+<li><strong>Limitation</strong> : variabilité élevée (écart-type <strong>20,55%</strong>) nécessitant validation rigoureuse</li>
 </ul></li>
-<li><strong>Pour l’interprétabilité</strong> : <strong>Régression Logistique Ridge</strong>
+<li><strong>Pour la robustesse et reproductibilité</strong> : <strong>Forêt Aléatoire</strong>
 <ul>
-<li>Coefficients directement interprétables</li>
-<li>Performance limitée mais modèle transparent</li>
+<li>Stabilité intermédiaire : écart-type <strong>5,38%</strong>, plus prévisible que GBM</li>
+<li>Sensibilité très élevée : <strong>97,50%</strong> pour la détection d’AML</li>
+<li>Performance raisonnable : <strong>56,79%</strong> d’accuracy</li>
+<li><strong>Limitation</strong> : même biais que la régression logistique (spécificité = 0,0%)</li>
 </ul></li>
 </ol>
+<p><strong>Recommandation contextuelle</strong> : Dans un contexte médical où l’équilibre entre sensibilité et spécificité est crucial, le <strong>Gradient Boosting</strong> s’impose malgré sa variabilité, étant la seule méthode capable de détecter les deux classes (spécificité = 30,00%).</p>
 </section>
 </section>
 <section id="conclusion-de-létude-comparative" class="level3">
 <h3 class="anchored" data-anchor-id="conclusion-de-létude-comparative">6.6 Conclusion de l’étude comparative</h3>
-<p>Cette analyse comparative démontre plusieurs principes fondamentaux de l’apprentissage automatique en grande dimension :</p>
-<p><strong>1. Supériorité des méthodes d’ensemble</strong> : Les forêts aléatoires et le gradient boosting surpassent significativement la régression logistique dans notre contexte p &gt;&gt; n, démontrant l’efficacité des mécanismes de régularisation implicite.</p>
-<p><strong>2. Importance du choix méthodologique</strong> : Le choix de la méthode doit être guidé par les priorités : performance pure (GBM), équilibre performance/robustesse (RF), ou interprétabilité (régression logistique).</p>
-<p><strong>3. Validation empirique en contexte réel</strong> : Les résultats obtenus sur des données en grande dimension confirment les prédictions théoriques concernant les limitations des approches linéaires et l’efficacité des méthodes d’ensemble.</p>
-<p><strong>4. Adaptation au contexte p &gt;&gt; n</strong> : Dans un contexte où p &gt;&gt; n, les méthodes d’ensemble offrent une solution naturelle aux défis de la grande dimension, sans nécessiter de préprocessing complexe de réduction de dimension.</p>
-<p>Cette étude confirme qu’il n’existe pas de méthode universellement optimale : le choix dépend du contexte et des priorités du praticien. Une approche rigoureuse de validation croisée et une compréhension des limites de chaque méthode sont essentielles pour une pratique éclairée de l’apprentissage automatique en statistique en grande dimension.</p>
+<p>Cette analyse comparative démontre plusieurs principes fondamentaux de l’apprentissage automatique en grande dimension, quantifiés par nos résultats empiriques :</p>
+<p><strong>1. Nuancement de la supériorité des méthodes d’ensemble</strong> : Contrairement aux attentes théoriques, la régression logistique Ridge atteint la meilleure accuracy globale (<strong>58,21%</strong>), dépassant le gradient boosting (<strong>57,86%</strong>) et la forêt aléatoire (<strong>56,79%</strong>). Cependant, cette supériorité masque un biais complet (spécificité = 0,0%) qui limite son applicabilité pratique.</p>
+<p><strong>2. Importance critique du choix méthodologique quantifiée</strong> : L’écart de performance modéré (<strong>1,42 points</strong> entre meilleure et moins bonne accuracy) souligne que le choix doit privilégier les caractéristiques qualitatives : - <strong>Stabilité</strong> : Régression logistique (écart-type = 2,26%) &gt;&gt; Forêt aléatoire (5,38%) &gt;&gt; Gradient boosting (20,55%) - <strong>Équilibre classes</strong> : Seul le gradient boosting atteint une spécificité non-nulle (<strong>30%</strong>) - <strong>Sensibilité</strong> : Forêt aléatoire (<strong>97,50%</strong>) ≈ Régression logistique (<strong>100%</strong>) &gt; Gradient boosting (<strong>78%</strong>)</p>
+<p><strong>3. Validation empirique des limites en grande dimension</strong> : Le ratio p &gt;&gt; n (1000/72 ≈ 14) impose des contraintes sévères confirmées quantitativement : - Aucune méthode ne dépasse <strong>60% d’accuracy</strong>, illustrant la difficulté intrinsèque - Le déséquilibre des classes (58,3% AML / 41,7% ALL) amplifie les biais algorithmiques - La régularisation optimale (λ = 0,18 pour Ridge) privilégie la stabilité au détriment de la discrimination</p>
+<p><strong>4. Adaptation contextuelle nécessaire</strong> : Dans notre contexte médical spécifique (classification leucémies), le <strong>gradient boosting</strong> s’impose comme choix optimal malgré sa variabilité (<strong>écart-type 20,55%</strong>), étant la seule méthode capable de discrimination bi-classe, critère essentiel en diagnostic différentiel.</p>
+<p>Cette étude confirme empiriquement qu’en contexte p &gt;&gt; n, <strong>aucune méthode n’est universellement optimale</strong> : le choix doit intégrer les contraintes métier (ici, la nécessité de détecter les deux classes de leucémies) au-delà des seules métriques de performance globale. La validation croisée rigoureuse révèle des nuances cruciales masquées par les moyennes agrégées.</p>
 </section>
 </section>
 
