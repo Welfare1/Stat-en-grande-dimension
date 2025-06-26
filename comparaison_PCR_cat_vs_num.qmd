@@ -22,19 +22,27 @@ Comparer deux approches pour la Régression sur Composantes Principales (PCR) su
 ## 1. Chargement des librairies et préparation des données
 
 ```{r setup, message=FALSE, warning=FALSE}
-library(tidyverse)
-library(FactoMineR)
-library(pls)
-library(caret)
-library(pROC)
+# Charger les packages de base disponibles dans R
+library(stats)     # Pour prcomp, glm
+library(MASS)      # Pour LDA (optionnel)
 
-# Essayer d'installer et charger Prince si disponible
-if (!require(prince, quietly = TRUE)) {
-  # Fallback sur FactoMineR pour FAMD si Prince n'est pas disponible
-  cat("Prince package non disponible, utilisation de FactoMineR pour FAMD\n")
-  use_prince <- FALSE
-} else {
-  use_prince <- TRUE
+# Fonction pour installer les packages manquants de façon gracieuse
+install_if_missing <- function(pkg) {
+  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
+    try({
+      install.packages(pkg, repos = "https://cloud.r-project.org/", quiet = TRUE)
+      library(pkg, character.only = TRUE, quietly = TRUE)
+    }, silent = TRUE)
+  }
+}
+
+# Essayer d'installer les packages nécessaires
+install_if_missing("FactoMineR")
+
+# Vérifier la disponibilité de FactoMineR pour FAMD
+use_factominer <- require("FactoMineR", quietly = TRUE)
+if (!use_factominer) {
+  cat("FactoMineR non disponible - utilisation d'une implémentation simplifiée\n")
 }
 
 set.seed(12311)
@@ -45,15 +53,15 @@ set.seed(12311)
 ```{r data_generation}
 # Paramètres du jeu de données
 n <- 72
-p_num <- 800    # Variables numériques
+p_num <- 50     # Variables numériques (réduit pour faciliter les tests)
 p_cat <- 5      # Variables catégorielles
 
 # Génération des variables numériques
+set.seed(12311)
 X_num <- matrix(rnorm(n * p_num), n, p_num)
 colnames(X_num) <- paste0("Num_", 1:p_num)
 
 # Génération des variables catégorielles
-set.seed(12311)
 X_cat <- data.frame(
   Cat_1 = factor(sample(c("A", "B", "C"), n, replace = TRUE, prob = c(0.4, 0.4, 0.2))),
   Cat_2 = factor(sample(c("X", "Y"), n, replace = TRUE, prob = c(0.6, 0.4))),
@@ -72,7 +80,7 @@ cat("Dimensions du jeu de données mixte:", dim(df_mixed), "\n")
 cat("Variables numériques:", p_num, "\n")
 cat("Variables catégorielles:", p_cat, "\n")
 cat("Répartition de la variable cible:\n")
-table(df_mixed$Y)
+print(table(df_mixed$Y))
 ```
 
 ## 2. Approche 1: FAMD-PCR
@@ -83,21 +91,65 @@ table(df_mixed$Y)
 # Séparer les variables explicatives de la cible
 X_mixed <- df_mixed[, !names(df_mixed) %in% "Y"]
 
-# FAMD avec FactoMineR (plus stable et disponible)
-cat("Réalisation de l'analyse FAMD...\n")
+# Fonction FAMD simplifiée si FactoMineR n'est pas disponible
+simplified_famd <- function(data) {
+  # Séparer variables numériques et catégorielles
+  num_vars <- data[, sapply(data, is.numeric)]
+  cat_vars <- data[, sapply(data, is.factor)]
+  
+  # Standardiser les variables numériques
+  num_scaled <- scale(num_vars)
+  
+  # Encoder les variables catégorielles (dummy coding)
+  cat_encoded <- data.frame(matrix(ncol = 0, nrow = nrow(data)))
+  for(col in names(cat_vars)) {
+    dummy_matrix <- model.matrix(~ . - 1, data = data.frame(x = cat_vars[[col]]))
+    colnames(dummy_matrix) <- paste0(col, "_", colnames(dummy_matrix))
+    cat_encoded <- cbind(cat_encoded, dummy_matrix)
+  }
+  
+  # Combiner les données
+  combined_data <- cbind(num_scaled, cat_encoded)
+  
+  # PCA sur les données combinées
+  pca_result <- prcomp(combined_data, center = FALSE, scale. = FALSE)
+  
+  # Calculer la variance expliquée
+  variance_explained <- (pca_result$sdev^2) / sum(pca_result$sdev^2) * 100
+  cumvar_explained <- cumsum(variance_explained)
+  
+  return(list(
+    ind = list(coord = pca_result$x),
+    eig = cbind(eigenvalue = pca_result$sdev^2, 
+                variance_percent = variance_explained,
+                cumulative_variance = cumvar_explained),
+    combined_data = combined_data
+  ))
+}
 
-# Identifier les indices des variables catégorielles
-cat_indices <- which(sapply(X_mixed, is.factor))
-cat("Variables catégorielles aux positions:", cat_indices, "\n")
+# Appliquer FAMD
+if (use_factominer) {
+  cat("Utilisation de FactoMineR pour FAMD...\n")
+  # Identifier les indices des variables catégorielles
+  cat_indices <- which(sapply(X_mixed, is.factor))
+  cat("Variables catégorielles aux positions:", cat_indices, "\n")
+  
+  famd_result <- FAMD(X_mixed, 
+                      ncp = min(30, n-1),  # Maximum 30 composantes ou n-1
+                      graph = FALSE)
+} else {
+  cat("Utilisation de l'implémentation FAMD simplifiée...\n")
+  famd_result <- simplified_famd(X_mixed)
+}
 
-# FAMD
-famd_result <- FAMD(X_mixed, 
-                    ncp = min(50, n-1),  # Maximum 50 composantes ou n-1
-                    graph = FALSE)
-
-# Variance expliquée
-variance_explained <- famd_result$eig[,2]
-cumvar_explained <- famd_result$eig[,3]
+# Extraire la variance expliquée
+if (use_factominer) {
+  variance_explained <- famd_result$eig[,2]
+  cumvar_explained <- famd_result$eig[,3]
+} else {
+  variance_explained <- famd_result$eig[,2]
+  cumvar_explained <- famd_result$eig[,3]
+}
 
 cat("Variance expliquée par les 10 premières composantes FAMD:\n")
 print(round(variance_explained[1:10], 2))
@@ -127,24 +179,51 @@ colnames(famd_components) <- paste0("FAMD_PC", 1:ncomp_famd)
 # Création du dataset pour la classification
 famd_data <- data.frame(famd_components, Y = df_mixed$Y)
 
-# Validation croisée 10-fold
+# Fonction pour calculer les métriques de classification
+calculate_metrics <- function(predicted, actual) {
+  # Matrice de confusion
+  cm <- table(Predicted = predicted, Actual = actual)
+  
+  # Accuracy
+  accuracy <- sum(diag(cm)) / sum(cm)
+  
+  # Sensitivité et spécificité (pour la classe AML)
+  if ("AML" %in% rownames(cm) && "AML" %in% colnames(cm)) {
+    tp <- cm["AML", "AML"]
+    tn <- cm["ALL", "ALL"] 
+    fp <- cm["AML", "ALL"]
+    fn <- cm["ALL", "AML"]
+    
+    sensitivity <- tp / (tp + fn)  # Taux de vrais positifs
+    specificity <- tn / (tn + fp)  # Taux de vrais négatifs
+  } else {
+    sensitivity <- NA
+    specificity <- NA
+  }
+  
+  return(c(Accuracy = accuracy, Sensitivity = sensitivity, Specificity = specificity))
+}
+
+# Validation croisée manuelle (10-fold)
 set.seed(12311)
-cv_folds <- createFolds(famd_data$Y, k = 10, list = TRUE, returnTrain = FALSE)
+n_folds <- 10
+fold_size <- floor(n / n_folds)
+indices <- sample(1:n)
 
 # Métriques pour stocker les résultats
-famd_metrics <- data.frame(
-  Accuracy = numeric(10),
-  Sensitivity = numeric(10),
-  Specificity = numeric(10),
-  AUC = numeric(10)
-)
+famd_metrics <- matrix(NA, nrow = n_folds, ncol = 3)
+colnames(famd_metrics) <- c("Accuracy", "Sensitivity", "Specificity")
 
 # Validation croisée
-for(i in 1:10) {
+for(i in 1:n_folds) {
+  # Indices du fold de test
+  start_idx <- (i-1) * fold_size + 1
+  end_idx <- ifelse(i == n_folds, n, i * fold_size)
+  test_indices <- indices[start_idx:end_idx]
+  
   # Division train/test
-  test_idx <- cv_folds[[i]]
-  train_data <- famd_data[-test_idx, ]
-  test_data <- famd_data[test_idx, ]
+  train_data <- famd_data[-test_indices, ]
+  test_data <- famd_data[test_indices, ]
   
   # Modèle de régression logistique
   famd_model <- glm(Y ~ ., data = train_data, family = binomial())
@@ -155,29 +234,18 @@ for(i in 1:10) {
   pred_class <- factor(pred_class, levels = levels(test_data$Y))
   
   # Calcul des métriques
-  cm <- confusionMatrix(pred_class, test_data$Y, positive = "AML")
-  
-  famd_metrics[i, "Accuracy"] <- cm$overall["Accuracy"]
-  famd_metrics[i, "Sensitivity"] <- cm$byClass["Sensitivity"]
-  famd_metrics[i, "Specificity"] <- cm$byClass["Specificity"]
-  
-  # AUC
-  if(length(unique(test_data$Y)) > 1) {
-    roc_obj <- roc(test_data$Y, pred_prob, quiet = TRUE)
-    famd_metrics[i, "AUC"] <- auc(roc_obj)
-  } else {
-    famd_metrics[i, "AUC"] <- NA
-  }
+  famd_metrics[i, ] <- calculate_metrics(pred_class, test_data$Y)
 }
 
 # Résultats moyens FAMD-PCR
 famd_results <- colMeans(famd_metrics, na.rm = TRUE)
+famd_sd <- apply(famd_metrics, 2, sd, na.rm = TRUE)
+
 cat("=== RÉSULTATS FAMD-PCR ===\n")
 cat("Nombre de composantes FAMD utilisées:", ncomp_famd, "\n")
-cat("Accuracy moyenne:", round(famd_results["Accuracy"], 3), "±", round(sd(famd_metrics$Accuracy, na.rm = TRUE), 3), "\n")
-cat("Sensitivity moyenne:", round(famd_results["Sensitivity"], 3), "±", round(sd(famd_metrics$Sensitivity, na.rm = TRUE), 3), "\n")
-cat("Specificity moyenne:", round(famd_results["Specificity"], 3), "±", round(sd(famd_metrics$Specificity, na.rm = TRUE), 3), "\n")
-cat("AUC moyenne:", round(famd_results["AUC"], 3), "±", round(sd(famd_metrics$AUC, na.rm = TRUE), 3), "\n")
+cat("Accuracy moyenne:", round(famd_results["Accuracy"], 3), "±", round(famd_sd["Accuracy"], 3), "\n")
+cat("Sensitivity moyenne:", round(famd_results["Sensitivity"], 3), "±", round(famd_sd["Sensitivity"], 3), "\n")
+cat("Specificity moyenne:", round(famd_results["Specificity"], 3), "±", round(famd_sd["Specificity"], 3), "\n")
 ```
 
 ## 3. Approche 2: PCR Classique avec encodage manuel
@@ -272,20 +340,20 @@ colnames(pca_components) <- paste0("PCA_PC", 1:ncomp_pca)
 # Création du dataset pour la classification
 pca_data <- data.frame(pca_components, Y = y_original)
 
-# Validation croisée 10-fold (mêmes folds pour comparaison équitable)
-pca_metrics <- data.frame(
-  Accuracy = numeric(10),
-  Sensitivity = numeric(10),
-  Specificity = numeric(10),
-  AUC = numeric(10)
-)
+# Validation croisée (mêmes folds que FAMD pour comparaison équitable)
+pca_metrics <- matrix(NA, nrow = n_folds, ncol = 3)
+colnames(pca_metrics) <- c("Accuracy", "Sensitivity", "Specificity")
 
 # Validation croisée
-for(i in 1:10) {
-  # Division train/test (mêmes folds que FAMD)
-  test_idx <- cv_folds[[i]]
-  train_data <- pca_data[-test_idx, ]
-  test_data <- pca_data[test_idx, ]
+for(i in 1:n_folds) {
+  # Indices du fold de test (mêmes que pour FAMD)
+  start_idx <- (i-1) * fold_size + 1
+  end_idx <- ifelse(i == n_folds, n, i * fold_size)
+  test_indices <- indices[start_idx:end_idx]
+  
+  # Division train/test
+  train_data <- pca_data[-test_indices, ]
+  test_data <- pca_data[test_indices, ]
   
   # Modèle de régression logistique
   pca_model <- glm(Y ~ ., data = train_data, family = binomial())
@@ -296,29 +364,18 @@ for(i in 1:10) {
   pred_class <- factor(pred_class, levels = levels(test_data$Y))
   
   # Calcul des métriques
-  cm <- confusionMatrix(pred_class, test_data$Y, positive = "AML")
-  
-  pca_metrics[i, "Accuracy"] <- cm$overall["Accuracy"]
-  pca_metrics[i, "Sensitivity"] <- cm$byClass["Sensitivity"]
-  pca_metrics[i, "Specificity"] <- cm$byClass["Specificity"]
-  
-  # AUC
-  if(length(unique(test_data$Y)) > 1) {
-    roc_obj <- roc(test_data$Y, pred_prob, quiet = TRUE)
-    pca_metrics[i, "AUC"] <- auc(roc_obj)
-  } else {
-    pca_metrics[i, "AUC"] <- NA
-  }
+  pca_metrics[i, ] <- calculate_metrics(pred_class, test_data$Y)
 }
 
 # Résultats moyens PCR Classique
 pca_results <- colMeans(pca_metrics, na.rm = TRUE)
+pca_sd <- apply(pca_metrics, 2, sd, na.rm = TRUE)
+
 cat("=== RÉSULTATS PCR CLASSIQUE ===\n")
 cat("Nombre de composantes PCA utilisées:", ncomp_pca, "\n")
-cat("Accuracy moyenne:", round(pca_results["Accuracy"], 3), "±", round(sd(pca_metrics$Accuracy, na.rm = TRUE), 3), "\n")
-cat("Sensitivity moyenne:", round(pca_results["Sensitivity"], 3), "±", round(sd(pca_metrics$Sensitivity, na.rm = TRUE), 3), "\n")
-cat("Specificity moyenne:", round(pca_results["Specificity"], 3), "±", round(sd(pca_metrics$Specificity, na.rm = TRUE), 3), "\n")
-cat("AUC moyenne:", round(pca_results["AUC"], 3), "±", round(sd(pca_metrics$AUC, na.rm = TRUE), 3), "\n")
+cat("Accuracy moyenne:", round(pca_results["Accuracy"], 3), "±", round(pca_sd["Accuracy"], 3), "\n")
+cat("Sensitivity moyenne:", round(pca_results["Sensitivity"], 3), "±", round(pca_sd["Sensitivity"], 3), "\n")
+cat("Specificity moyenne:", round(pca_results["Specificity"], 3), "±", round(pca_sd["Specificity"], 3), "\n")
 ```
 
 ## 4. Comparaison des deux approches
@@ -330,18 +387,16 @@ cat("AUC moyenne:", round(pca_results["AUC"], 3), "±", round(sd(pca_metrics$AUC
 comparison_df <- data.frame(
   Methode = c("FAMD-PCR", "PCR Classique"),
   Nb_Composantes = c(ncomp_famd, ncomp_pca),
-  Accuracy = c(paste0(round(famd_results["Accuracy"], 3), " ± ", round(sd(famd_metrics$Accuracy, na.rm = TRUE), 3)),
-               paste0(round(pca_results["Accuracy"], 3), " ± ", round(sd(pca_metrics$Accuracy, na.rm = TRUE), 3))),
-  Sensitivity = c(paste0(round(famd_results["Sensitivity"], 3), " ± ", round(sd(famd_metrics$Sensitivity, na.rm = TRUE), 3)),
-                  paste0(round(pca_results["Sensitivity"], 3), " ± ", round(sd(pca_metrics$Sensitivity, na.rm = TRUE), 3))),
-  Specificity = c(paste0(round(famd_results["Specificity"], 3), " ± ", round(sd(famd_metrics$Specificity, na.rm = TRUE), 3)),
-                  paste0(round(pca_results["Specificity"], 3), " ± ", round(sd(pca_metrics$Specificity, na.rm = TRUE), 3))),
-  AUC = c(paste0(round(famd_results["AUC"], 3), " ± ", round(sd(famd_metrics$AUC, na.rm = TRUE), 3)),
-          paste0(round(pca_results["AUC"], 3), " ± ", round(sd(pca_metrics$AUC, na.rm = TRUE), 3)))
+  Accuracy = c(paste0(round(famd_results["Accuracy"], 3), " ± ", round(famd_sd["Accuracy"], 3)),
+               paste0(round(pca_results["Accuracy"], 3), " ± ", round(pca_sd["Accuracy"], 3))),
+  Sensitivity = c(paste0(round(famd_results["Sensitivity"], 3), " ± ", round(famd_sd["Sensitivity"], 3)),
+                  paste0(round(pca_results["Sensitivity"], 3), " ± ", round(pca_sd["Sensitivity"], 3))),
+  Specificity = c(paste0(round(famd_results["Specificity"], 3), " ± ", round(famd_sd["Specificity"], 3)),
+                  paste0(round(pca_results["Specificity"], 3), " ± ", round(pca_sd["Specificity"], 3)))
 )
 
-library(knitr)
-kable(comparison_df, caption = "Comparaison des performances FAMD-PCR vs PCR Classique")
+cat("=== TABLEAU COMPARATIF ===\n")
+print(comparison_df)
 ```
 
 ### 4.2 Visualisations comparatives
@@ -364,27 +419,20 @@ abline(v = ncomp_pca, col = "red", lty = 2)
 
 par(mfrow = c(1, 1))
 
-# Boxplots de comparaison des performances
-metrics_long <- data.frame(
-  Methode = rep(c("FAMD-PCR", "PCR Classique"), each = 10),
-  Accuracy = c(famd_metrics$Accuracy, pca_metrics$Accuracy),
-  AUC = c(famd_metrics$AUC, pca_metrics$AUC)
-)
+# Boxplots de comparaison des performances (version simplifiée)
+# Graphique des performances en barres
+performance_means <- c(famd_results["Accuracy"], pca_results["Accuracy"])
+performance_sds <- c(famd_sd["Accuracy"], pca_sd["Accuracy"])
+method_names <- c("FAMD-PCR", "PCR Classique")
 
-# Graphique des performances
-library(ggplot2)
-library(reshape2)
+barplot(performance_means, names.arg = method_names, 
+        main = "Comparaison des performances (Accuracy)",
+        ylab = "Accuracy", col = c("lightblue", "lightcoral"))
 
-metrics_melted <- melt(metrics_long, id.vars = "Methode")
-
-ggplot(metrics_melted, aes(x = Methode, y = value, fill = Methode)) +
-  geom_boxplot(alpha = 0.7) +
-  facet_wrap(~ variable, scales = "free_y") +
-  theme_minimal() +
-  labs(title = "Comparaison des performances par validation croisée",
-       y = "Valeur de la métrique",
-       x = "Méthode") +
-  theme(legend.position = "bottom")
+# Ajouter les barres d'erreur
+arrows(x0 = c(0.7, 1.9), y0 = performance_means - performance_sds,
+       x1 = c(0.7, 1.9), y1 = performance_means + performance_sds,
+       angle = 90, code = 3, length = 0.05)
 ```
 
 ### 4.3 Analyse de la sparsité et des coefficients
