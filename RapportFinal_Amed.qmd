@@ -440,13 +440,22 @@ Dans notre contexte de grande dimension (p = 1000, n = 72), nous comparons trois
 
 \- Optimisation des hyperparamètres pour chaque méthode
 
-### Régression logistique Ridge : L'approche linéaire régularisée
+### 6.1 Régression logistique Ridge : L'approche linéaire régularisée
 
 En grande dimension, la régression logistique classique devient inapplicable (matrice X'X non inversible). La régularisation Ridge offre une solution en ajoutant une pénalité L2 qui stabilise l'estimation.
 
-**Modèle utilisé :** $$\min_{\beta} \left[ -\log L(\beta) + \lambda \sum_{j=1}^p \beta_j^2 \right]$$
+**Modèle de régression logistique :**
+$$P(Y = 1|X) = \frac{1}{1 + e^{-X^T\beta}}$$
 
-**Avantages :** Interprétabilité directe des coefficients, stabilité numérique\
+**Fonction de coût Ridge :**
+$$J(\beta) = -\frac{1}{n}\sum_{i=1}^{n} \left[ y_i \log(p_i) + (1-y_i) \log(1-p_i) \right] + \lambda \sum_{j=1}^p \beta_j^2$$
+
+où $p_i = P(Y = 1|X_i)$ et $\lambda > 0$ est le paramètre de régularisation.
+
+**Estimation :**
+$$\hat{\beta}_{Ridge} = \text{argmin}_{\beta} \left\{ J(\beta) \right\}$$
+
+**Avantages :** Interprétabilité directe des coefficients, stabilité numérique  
 **Inconvénients :** Hypothèse de linéarité restrictive en grande dimension
 
 #### Implémentation et évaluation
@@ -560,9 +569,28 @@ print(logit_results)
 
 ### 6.2 Forêt aléatoire : L'approche par ensemble
 
-La forêt aléatoire est particulièrement adaptée à la grande dimension grâce à ses mécanismes intégrés de régularisation : - **Bagging** : Réduction de la variance par moyennage de modèles - **Sélection aléatoire** : Seules √p variables sont considérées à chaque split
+La forêt aléatoire est particulièrement adaptée à la grande dimension grâce à ses mécanismes intégrés de régularisation :
+- **Bagging** : Réduction de la variance par moyennage de modèles
+- **Sélection aléatoire** : Seules $m = \sqrt{p}$ variables sont considérées à chaque split
 
-**Avantages :** Gestion naturelle de la grande dimension, robustesse au bruit\
+**Algorithme Random Forest :**
+
+1. **Pour $b = 1, ..., B$ :**
+   - Tirer un échantillon bootstrap $\mathcal{D}_b$ de taille $n$
+   - Construire un arbre $T_b$ sur $\mathcal{D}_b$ avec sélection aléatoire de $m$ variables à chaque nœud
+
+2. **Prédiction finale :**
+$$\hat{f}_{RF}(x) = \frac{1}{B} \sum_{b=1}^{B} T_b(x)$$
+
+**Critère de division - Indice de Gini :**
+$$G_m = \sum_{k=1}^{K} p_{mk}(1 - p_{mk}) = 1 - \sum_{k=1}^{K} p_{mk}^2$$
+
+où $p_{mk}$ est la proportion d'observations de classe $k$ dans le nœud $m$.
+
+**Erreur Out-of-Bag (OOB) :**
+$$\text{Erreur OOB} = \frac{1}{n} \sum_{i=1}^{n} I\left(y_i \neq \hat{f}_{OOB}(x_i)\right)$$
+
+**Avantages :** Gestion naturelle de la grande dimension, robustesse au bruit  
 **Inconvénients :** Interprétabilité limitée, temps de calcul plus élevé
 
 #### Implémentation et optimisation
@@ -648,8 +676,33 @@ print(rf_results)
 
 Le gradient boosting diffère de la forêt aléatoire par son approche séquentielle : chaque nouveau modèle corrige les erreurs du précédent, permettant une optimisation itérative.
 
-**Principe :** Construction séquentielle d'arbres faibles où chaque modèle apprend des résidus du précédent\
-**Avantages :** Excellente capacité d'apprentissage, adaptation fine aux patterns complexes\
+**Algorithme de Gradient Boosting :**
+
+1. **Initialisation :** 
+$$F_0(x) = \text{argmin}_{\gamma} \sum_{i=1}^n L(y_i, \gamma)$$
+
+2. **Pour $m = 1, 2, ..., M$ :**
+   
+   a) **Calcul des pseudo-résidus :**
+   $$r_{im} = -\left[\frac{\partial L(y_i, F(x_i))}{\partial F(x_i)}\right]_{F=F_{m-1}}$$
+   
+   b) **Ajustement d'un arbre faible :**
+   Entraîner $h_m(x)$ sur $\{(x_i, r_{im})\}_{i=1}^n$
+   
+   c) **Optimisation du pas :**
+   $$\gamma_m = \text{argmin}_{\gamma} \sum_{i=1}^n L(y_i, F_{m-1}(x_i) + \gamma h_m(x_i))$$
+   
+   d) **Mise à jour du modèle :**
+   $$F_m(x) = F_{m-1}(x) + \nu \gamma_m h_m(x)$$
+
+3. **Prédiction finale :** $\hat{f}(x) = F_M(x)$
+
+**Fonction de perte (classification binaire - déviance) :**
+$$L(y, F(x)) = \log(1 + e^{-2yF(x)})$$
+
+où $\nu \in (0,1]$ est le taux d'apprentissage (shrinkage).
+
+**Avantages :** Excellente capacité d'apprentissage, adaptation fine aux patterns complexes  
 **Inconvénients :** Risque de surapprentissage, temps de calcul élevé
 
 #### Implémentation et optimisation
