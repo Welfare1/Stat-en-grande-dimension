@@ -1,19 +1,89 @@
 ---
-title: "Comparaison de deux approches PCR pour données de haute dimension: Analyse comparative PCR vs PCR Classique"
+title: "Question 4 : Régression sur Composantes Principales (PCR) - Analyse comparative des approches pour variables catégorielles"
 author: "Amed BAH"
-format: html
+date: today
+lang: fr
+
+format:
+  pdf:
+    documentclass: article
+    geometry: margin=2.5cm
+    fontsize: 11pt
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    colorlinks: true
+    fig-pos: 'H'
+    fig-cap-location: bottom
+    keep-tex: false
+    include-in-header:
+      text: |
+        \usepackage{float}
+        \usepackage{booktabs}
+        \usepackage{longtable}
+        \usepackage{array}
+        \usepackage{multirow}
+        \usepackage{wrapfig}
+        \usepackage{colortbl}
+        \usepackage{pdflscape}
+        \usepackage{tabu}
+        \usepackage{threeparttable}
+        \usepackage{threeparttablex}
+        \usepackage{makecell}
+        \usepackage{xcolor}
+  html:
+    theme: cosmo
+    toc: true
+    toc-float: true
+    code-fold: false
+    number-sections: true
+    fig-cap-location: bottom
+
 editor: visual
+
+execute:
+  warning: false
+  message: false
+  echo: true
+  fig-width: 8
+  fig-height: 6
+  fig-dpi: 300
 ---
 
-## Objectif et Méthodologie
+## Question 4 : Régression sur composantes principales (PCR) {#sec-introduction}
 
-Comparer deux approches pour la Régression sur Composantes Principales (PCR) sur données de haute dimension (p \>\> n) pour une tâche de classification binaire.
+Avant d'implémenter la PCR standard et de la comparer au Lasso, **nous avons identifié une problématique méthodologique importante** : notre variable à expliquer Y est catégorielle (ALL vs AML), ce qui soulève la question de savoir **si transformer cette variable en numérique pourrait poser des problèmes statistiques**.
 
-**Approche 1 (PCR Standard):** - Réduction de dimension non supervisée via PCA classique - Classification : régression logistique sur les composantes principales
+### Objectif de cette analyse préliminaire
 
-**Approche 2 (PCR avec sélection de composantes):** - PCA sur les données standardisées - Sélection optimale du nombre de composantes par validation croisée - Classification : régression logistique sur les composantes sélectionnées
+En tant qu'étudiants en data science, nous souhaitons **prendre une décision éclairée** sur l'approche PCR à adopter avant de répondre à la question principale. Cette analyse comparative nous permettra de :
 
-**Contexte:** Cette analyse utilise un jeu de données simulé de haute dimension (n=72, p=1000) pour évaluer les performances des approches PCR dans un contexte où le nombre de variables dépasse largement le nombre d'observations.
+1. **Évaluer la validité** de transformer une variable catégorielle en numérique pour la PCR
+2. **Comparer les performances** de différentes approches PCR adaptées à notre contexte
+3. **Choisir la meilleure méthode** pour répondre ensuite à la question 4 du projet
+4. **Préparer la comparaison avec le Lasso** avec une approche PCR méthodologiquement solide
+
+### Structure des données et défi
+
+- **Variables explicatives X** : numériques (p=1000 variables)
+- **Variable à expliquer Y** : catégorielle binaire (ALL vs AML)  
+- **Défi** : p >> n (1000 variables pour 72 observations)
+
+### Approches PCR étudiées
+
+Nous comparons deux stratégies principales :
+
+**Approche 1 - PCR avec sélection optimisée :** 
+- ACP sur les variables explicatives numériques
+- Sélection du nombre de composantes par validation croisée
+- Régression logistique sur les composantes (respect de la nature catégorielle de Y)
+
+**Approche 2 - PCR classique :** 
+- ACP sur les variables explicatives standardisées
+- Sélection basée sur un critère de variance expliquée (85%)
+- Régression logistique sur les composantes retenues
+
+Cette analyse nous permettra ensuite de **répondre rigoureusement à la question 4** en utilisant l'approche PCR la plus appropriée.
 
 ## 1. Chargement des librairies et préparation des données
 
@@ -21,66 +91,87 @@ Comparer deux approches pour la Régression sur Composantes Principales (PCR) su
 # Charger les packages de base disponibles dans R
 library(stats)     # Pour prcomp, glm
 library(MASS)      # Pour LDA (optionnel)
+library(knitr)     # Pour kable
 
-# Fonction pour installer les packages manquants de façon gracieuse
-install_if_missing <- function(pkg) {
-  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-    try({
-      install.packages(pkg, repos = "https://cloud.r-project.org/", quiet = TRUE)
-      library(pkg, character.only = TRUE, quietly = TRUE)
-    }, silent = TRUE)
-  }
-}
-
-# Essayer d'installer les packages nécessaires
-install_if_missing("FactoMineR")
-
-# Vérifier la disponibilité de FactoMineR pour FAMD
-use_factominer <- require("FactoMineR", quietly = TRUE)
-if (!use_factominer) {
-  cat("FactoMineR non disponible - utilisation d'une implémentation simplifiée\n")
+# Packages pour améliorer l'affichage des tableaux
+# Note: Si kableExtra n'est pas installé, exécutez: install.packages("kableExtra")
+if (!require(kableExtra, quietly = TRUE)) {
+  warning("Le package 'kableExtra' n'est pas installé. Les tableaux seront affichés avec kable() basique.\nPour une meilleure présentation, installez le package avec: install.packages('kableExtra')")
+  use_kableExtra <- FALSE
+} else {
+  library(kableExtra)
+  use_kableExtra <- TRUE
 }
 
 set.seed(12311)
+
+# Fonction utilitaire pour l'affichage des tableaux
+format_table <- function(df, caption = NULL, col_names = NULL) {
+  # Construire les arguments pour kable
+  kable_args <- list(x = df, caption = caption, digits = 4)
+  if (!is.null(col_names)) {
+    kable_args$col.names <- col_names
+  }
+  
+  if (use_kableExtra) {
+    table <- do.call(kable, kable_args) %>%
+      kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                    full_width = FALSE,
+                    position = "center") %>%
+      row_spec(0, bold = TRUE, color = "white", background = "#2c3e50")
+    return(table)
+  } else {
+    return(do.call(kable, kable_args))
+  }
+}
 ```
 
 ### Génération d'un jeu de données de haute dimension
 
 ```{r data_generation}
 # Paramètres du jeu de données (conforme au rapport principal)
-n <- 72
-p <- 1000
+n <- 72      # Nombre d'observations
+p <- 1000    # Nombre de variables explicatives numériques
 
-# Génération des données numériques de haute dimension
+# Génération des variables explicatives (toutes numériques)
 set.seed(12311)
 X <- matrix(rnorm(n * p), n, p)
 colnames(X) <- paste0("V", 1:p)
 
-# Variable cible binaire
+# Variable à expliquer (catégorielle binaire)
 y <- factor(sample(c("ALL", "AML"), n, replace = TRUE))
 
 # Conversion en dataframe pour faciliter les manipulations
 df_numeric <- data.frame(X, Y = y)
 
-cat("Dimensions du jeu de données:", dim(df_numeric), "\n")
-cat("Variables numériques:", p, "\n")
-cat("Nombre d'observations:", n, "\n")
-cat("Rapport p/n:", round(p/n, 2), "\n")
-cat("Répartition de la variable cible:\n")
-print(table(df_numeric$Y))
+# Résumé des caractéristiques du jeu de données
+data_summary <- data.frame(
+  Caracteristique = c("Dimensions", "Variables explicatives", "Observations", "Rapport p/n", "Type de Y"),
+  Valeur = c(paste0(dim(df_numeric)[1], " × ", dim(df_numeric)[2]), 
+             paste0(p, " (numériques)"),
+             n,
+             round(p/n, 2),
+             "Catégorielle binaire")
+)
+
+format_table(data_summary, 
+             caption = "**Tableau 1**: Structure du jeu de données simulé",
+             col_names = c("Caractéristique", "Valeur"))
+
+cat("\n")
+format_table(as.data.frame(table(df_numeric$Y)), 
+             caption = "**Tableau 2**: Répartition de la variable cible Y",
+             col_names = c("Classe", "Effectif"))
 ```
 
-## 2. Approche 1: FAMD-PCR
+## 2. Implémentation des approches PCR
 
-### 2.1 FAMD (Factor Analysis of Mixed Data)
+### 2.1 Approche 1 : PCR avec optimisation par validation croisée
 
-```{r famd_analysis}
-# Séparer les variables explicatives de la cible
-X_mixed <- df_mixed[, !names(df_mixed) %in% "Y"]
-
-## Approche 1: PCR Standard avec sélection optimale de composantes
+Nous commençons par tester une approche où le nombre de composantes principales est sélectionné de manière **data-driven** via validation croisée.
 
 ```{r pcr_approach1}
+
 # Séparation des données d'entraînement et de test
 set.seed(12311)
 train_indices <- sample(1:n, size = floor(0.7 * n))
@@ -89,7 +180,7 @@ X_test <- X[-train_indices, ]
 y_train <- y[train_indices]
 y_test <- y[-train_indices]
 
-cat("Taille train:", length(y_train), "| Taille test:", length(y_test), "\n")
+cat("Taille échantillon - Train:", length(y_train), "| Test:", length(y_test), "\n")
 
 # PCA sur les données d'entraînement
 X_train_scaled <- scale(X_train)
@@ -114,7 +205,7 @@ abline(h = mean(variance_explained), col = "red", lty = 2, lwd = 2)
 legend("topright", legend = "Moyenne", col = "red", lty = 2)
 ```
 
-```
+
 
 ### Sélection optimale du nombre de composantes par validation croisée
 
@@ -173,12 +264,34 @@ cv_results <- sapply(n_comp_range, function(nc) evaluate_pcr(nc, X_train_scaled,
 # Trouver le nombre optimal de composantes
 optimal_ncomp <- n_comp_range[which.max(cv_results)]
 
-cat("Résultats de validation croisée:\n")
-for(i in seq_along(n_comp_range)) {
-  cat(sprintf("k=%2d composantes: Accuracy CV = %.3f\n", n_comp_range[i], cv_results[i]))
+# Affichage des résultats de validation croisée
+cv_results_table <- data.frame(
+  Composantes = n_comp_range,
+  Accuracy_CV = round(cv_results, 3)
+)
+
+# Affichage des résultats avec mise en forme
+if (use_kableExtra) {
+  kable(cv_results_table, 
+        caption = "**Tableau 3**: Résultats de validation croisée pour différents nombres de composantes",
+        col.names = c("Nombre de composantes", "Accuracy CV"),
+        digits = 4) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+    row_spec(which.max(cv_results), bold = TRUE, color = "white", background = "#28a745")
+} else {
+  format_table(cv_results_table, 
+               caption = "**Tableau 3**: Résultats de validation croisée pour différents nombres de composantes",
+               col_names = c("Nombre de composantes", "Accuracy CV"))
 }
-cat("\nNombre optimal de composantes:", optimal_ncomp, "\n")
-cat("Accuracy CV correspondante:", round(max(cv_results), 3), "\n")
+
+optimal_result <- data.frame(
+  Optimal_Components = optimal_ncomp,
+  Best_CV_Accuracy = round(max(cv_results), 3)
+)
+
+format_table(optimal_result, 
+             caption = "**Tableau 4**: Résultat optimal de la validation croisée",
+             col_names = c("Composantes optimales", "Meilleure Accuracy CV"))
 
 # Visualisation des résultats CV
 plot(n_comp_range, cv_results, type = "b", col = "darkgreen", pch = 19,
@@ -212,11 +325,27 @@ pred_class <- factor(pred_class, levels = levels(y_test))
 confusion_matrix <- table(Predicted = pred_class, Actual = y_test)
 accuracy_pcr1 <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 
-cat("=== RÉSULTATS PCR STANDARD (Approche 1) ===\n")
-cat("Nombre de composantes utilisées:", optimal_ncomp, "\n")
-cat("Accuracy sur test:", round(accuracy_pcr1, 3), "\n")
-cat("Matrice de confusion:\n")
-print(confusion_matrix)
+# Résultats PCR Standard (Approche 1)
+results_pcr1 <- data.frame(
+  Metrique = c("Composantes utilisées", "Accuracy test"),
+  Valeur = c(optimal_ncomp, round(accuracy_pcr1, 3))
+)
+
+format_table(results_pcr1, 
+             caption = "**Tableau 5**: Résultats PCR Standard (Approche 1 - Validation croisée)",
+             col_names = c("Métrique", "Valeur"))
+
+# Matrice de confusion avec formatage approprié
+if (use_kableExtra) {
+  kable(confusion_matrix, 
+        caption = "**Tableau 6**: Matrice de confusion - PCR Standard (Approche 1)",
+        digits = 0) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
+    add_header_above(c(" " = 1, "Valeurs réelles" = 2))
+} else {
+  format_table(confusion_matrix, 
+               caption = "**Tableau 6**: Matrice de confusion - PCR Standard (Approche 1)")
+}
 ```
 
 ## Approche 2: PCR Classique avec nombre fixe de composantes
@@ -230,11 +359,6 @@ print(confusion_matrix)
 # Trouver le nombre de composantes pour 85% de variance
 ncomp_classical <- which(cumvar_explained >= 85)[1]
 if (is.na(ncomp_classical)) ncomp_classical <- min(20, length(variance_explained))
-
-cat("=== PCR CLASSIQUE (Approche 2) ===\n")
-cat("Critère: 85% de variance cumulée expliquée\n")
-cat("Nombre de composantes sélectionnées:", ncomp_classical, "\n")
-cat("Variance cumulée expliquée:", round(cumvar_explained[ncomp_classical], 2), "%\n")
 
 # Extraction des composantes pour train et test
 pc_train_classical <- pca_result$x[, 1:ncomp_classical]
@@ -257,15 +381,26 @@ pred_class_classical <- factor(pred_class_classical, levels = levels(y_test))
 confusion_matrix_classical <- table(Predicted = pred_class_classical, Actual = y_test)
 accuracy_pcr2 <- sum(diag(confusion_matrix_classical)) / sum(confusion_matrix_classical)
 
-cat("Accuracy sur test:", round(accuracy_pcr2, 3), "\n")
-cat("Matrice de confusion:\n")
-print(confusion_matrix_classical)
+# Résultats PCR Classique (Approche 2)
+pcr_classical_info <- data.frame(
+  Critere = "85% de variance cumulée expliquée",
+  Composantes_selectionnees = ncomp_classical,
+  Variance_expliquee = paste0(round(cumvar_explained[ncomp_classical], 2), "%"),
+  Accuracy_test = round(accuracy_pcr2, 3)
+)
 
+format_table(as.data.frame(t(pcr_classical_info)), 
+             caption = "**Résultats PCR Classique (Approche 2)**",
+             col_names = c("Valeur"))
+
+cat("\n**Matrice de confusion PCR Classique:**\n")
+format_table(confusion_matrix_classical, 
+             caption = "Matrice de confusion - PCR Classique (Approche 2)")
 ```
 
-## Comparaison des approches et discussion
+## 3. Premiers résultats et questionnement méthodologique
 
-### Synthèse des résultats
+### 3.1 Synthèse des résultats obtenus
 
 ```{r comparison_plots}
 # Comparaison visuelle des deux approches
@@ -276,8 +411,19 @@ comparison_data <- data.frame(
   Criterion = c("Validation croisée", "85% variance")
 )
 
-print("=== COMPARAISON DES APPROCHES PCR ===")
-print(comparison_data)
+# Comparaison avec formatage approprié
+if (use_kableExtra) {
+  kable(comparison_data, 
+        caption = "**Tableau 7**: Comparaison initiale des approches PCR",
+        col.names = c("Approche", "Accuracy", "Nb Composantes", "Critère"),
+        digits = 4) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+    row_spec(which.max(comparison_data$Accuracy), bold = TRUE, color = "white", background = "#17a2b8")
+} else {
+  format_table(comparison_data, 
+               caption = "**Tableau 7**: Comparaison initiale des approches PCR",
+               col_names = c("Approche", "Accuracy", "Nb Composantes", "Critère"))
+}
 
 # Graphique de comparaison
 par(mfrow = c(1, 2))
@@ -285,7 +431,7 @@ par(mfrow = c(1, 2))
 # Comparaison des accuracies
 barplot(comparison_data$Accuracy, 
         names.arg = c("PCR Optimisée", "PCR Classique"),
-        main = "Comparaison des performances",
+        main = "Performances initiales",
         ylab = "Accuracy",
         col = c("darkgreen", "darkred"),
         ylim = c(0, 1))
@@ -308,7 +454,8 @@ par(mfrow = c(1, 1))
 
 ### Discussion et conclusions
 
-#### Analyse des résultats
+::: {.callout-note}
+## 📊 Résumé des résultats principaux
 
 **Approche 1 - PCR avec optimisation par validation croisée :**
 - Nombre optimal de composantes : `r optimal_ncomp`
@@ -319,6 +466,9 @@ par(mfrow = c(1, 1))
 - Nombre de composantes : `r ncomp_classical`
 - Accuracy sur données de test : `r round(accuracy_pcr2, 3)`
 - Avantage : Critère simple et interprétable
+:::
+
+#### Analyse des résultats
 
 #### Contexte de haute dimension
 
@@ -342,204 +492,521 @@ Par rapport au Lasso sur données de haute dimension :
 3. **Pour la robustesse** : PCR est particulièrement adaptée aux contextes de haute dimension
 4. **Pour l'interprétation** : Analyser la contribution des variables originales aux composantes principales retenues
 
-Cette comparaison démontre l'efficacité de la PCR dans un contexte de classification avec données de haute dimension, où les méthodes traditionnelles peuvent échouer.
+### 3.2 Question méthodologique soulevée
 
-#### 4.3.1 Philosophie de sélection vs transformation
+**Observation importante :** Nos deux approches utilisent toutes les deux une régression logistique (méthode adaptée à la classification). Cependant, nous nous demandons si certaines implémentations de PCR dans la littérature pourraient **transformer la variable catégorique en numérique** avant d'appliquer une régression linéaire classique.
 
-**Lasso - Sélection stricte :** - Mécanisme : Pénalisation L1 conduisant à des coefficients exactement nuls - Résultat : Variables soit incluses (coefficient ≠ 0) soit exclues (coefficient = 0) - Avantage : Parcimonie et interprétabilité directe des variables retenues - Limite : Peut éliminer toutes les variables si aucune n'a d'effet individuel suffisant
+**Question de recherche :** Cette transformation serait-elle valide statistiquement ? Quels seraient les impacts sur la performance et l'interprétabilité ?
 
-**PCR - Transformation douce :** - Mécanisme : Combinaisons linéaires de toutes les variables avec poids différents - Résultat : Toutes les variables contribuent aux composantes principales - Avantage : Capture des effets conjoints et des interactions subtiles - Limite : Perte de l'interprétabilité directe des variables individuelles
+En tant qu'étudiants consciencieux, nous souhaitons **explorer cette question** avant de finaliser notre choix d'approche pour la Question 4.
 
-#### 4.3.2 Gestion de la dimension et de la complexité
+## 4. Investigation : PCR avec transformation numérique vs PCR adaptée
 
-**Question de la haute dimension :** - **Lasso** : Efficace quand quelques variables ont des effets forts et individualisables - **PCR** : Performante quand l'information est distribuée dans de nombreuses variables
+### 4.1 Problématique identifiée
 
-**Gestion de la colinéarité :** - **Lasso** : Peut arbitrairement choisir une variable parmi un groupe de variables corrélées - **PCR** : Combine naturellement les variables corrélées dans les premières composantes
+Dans certaines applications de PCR que nous avons pu observer, la variable catégorielle est parfois transformée en variable numérique. Nous souhaitons **tester empiriquement** les conséquences de cette approche pour **valider ou invalider** cette pratique.
 
-#### 4.3.3 Illustration avec nos données
+### 4.2 Comparaison des deux philosophies
 
-Dans notre étude sur données mixtes : - **Lasso aurait probablement échoué** (par analogie avec l'étude principale) car les variables individuelles ont des effets faibles - **PCR réussit** en capturant 80% de la variance avec 25 composantes, permettant une classification avec \~45% d'accuracy - **FAMD-PCR vs PCR Classique** : Performances comparables mais approches différentes de la gestion des variables catégorielles
+**Approche A - PCR "classique" avec transformation :** 
+1. Transformer Y catégorielle → Y numérique (ALL=0, AML=1)
+2. Appliquer une régression linéaire sur les composantes principales
+3. Classifier par seuillage (> 0.5 = AML)
 
-### 4.4 Que perd-on en passant des variables initiales aux composantes principales ?
+**Approche B - PCR adaptée à la classification :** 
+1. Conserver Y catégorielle
+2. Appliquer une régression logistique sur les composantes principales  
+3. Classifier par probabilité maximale
 
-#### 4.4.1 Pertes en termes d'interprétabilité
+### 4.3 Méthodologie de comparaison
 
-**Perte de signification directe :** - Une composante principale = combinaison linéaire de toutes les variables - Exemple : PC1 = 0.15×Num_1 + 0.08×Num_2 + ... + 0.12×Cat_1_B + ... - **Difficulté** : Identifier quelles variables originales impactent spécifiquement la prédiction
+Nous testons les deux approches sur le **même jeu de données** et les **mêmes composantes principales** pour assurer une comparaison équitable.
 
-**Perte de sens métier :** - Variables originales : signification concrète (âge, revenus, catégorie socio-professionnelle, etc.) - Composantes principales : constructions mathématiques abstraites sans sens physique - **Impact** : Communication difficile aux experts métier
+**Étape 3 - Modélisation :**
+- Régression logistique : P(Y="AML") = logit⁻¹(β₀ + β₁×PC1 + ... + βₖ×PCk)
 
-#### 4.4.2 Pertes en termes de parcimonie
+**Étape 4 - Prédiction :**
+- Prédiction probabiliste : P̂(Y="AML")
+- Classification : ŷ_classe = "AML" si P̂(Y="AML") > 0.5, sinon "ALL"
 
-**Absence de sélection :** - Toutes les variables contribuent à chaque composante - Impossible d'identifier un sous-ensemble réduit de variables "importantes" - **Contraste avec Lasso** : Qui peut éliminer complètement les variables non informatives
+**Étape 5 - Évaluation :**
+- Accuracy, matrice de confusion, probabilités de classe
 
-#### 4.4.3 Ce que l'on gagne en compensation
+### Implémentation comparative sur le jeu de données
 
-**Stabilité numérique :** - Orthogonalité des composantes principales élimine les problèmes de colinéarité - Robustesse face aux données bruitées
+```{r pcr_numeric_vs_categorical}
+print("Comparaison PCR Classique vs PCR Adaptée")
 
-**Capture de structures complexes :** - Détection d'interactions et d'effets conjoints non linéaires - Préservation de l'information distribuée dans l'ensemble des variables
+# Utilisation des mêmes composantes principales (85% variance) pour comparaison équitable
+components_data <- data.frame(pc_train_classical, y_train_num = ifelse(y_train == "AML", 1, 0), y_train_cat = y_train)
+test_components_data <- data.frame(pc_test_classical, y_test_num = ifelse(y_test == "AML", 1, 0), y_test_cat = y_test)
 
-**Performance en haute dimension :** - Dans notre étude : PCR réussit (61.11%) là où Lasso échoue (0 variable) - Particulièrement adapté aux domaines comme la génomique, l'analyse d'images, etc.
+# Approche 1: PCR Classique (cible numérique)
+print("Approche 1: PCR Classique (cible numérique)")
 
-### 4.5 Conclusion et recommandations
+# Modèle de régression linéaire
+model_pcr_numeric <- lm(y_train_num ~ ., data = components_data[, c(colnames(pc_train_classical), "y_train_num")])
 
-#### 4.5.1 Synthèse des avantages et limites
+# Prédictions continues
+pred_continuous <- predict(model_pcr_numeric, test_components_data)
 
-**Avantages de la PCR :** - **Robustesse** : Fonctionne même quand les méthodes de sélection échouent - **Exhaustivité** : Utilise toute l'information disponible dans les données - **Stabilité** : Résultats reproductibles et numériquement stables - **Flexibilité** : FAMD-PCR s'adapte naturellement aux données mixtes
-
-**Limites de la PCR :** - **Interprétabilité** : Composantes abstraites difficiles à expliquer - **Parcimonie** : Pas de réduction du nombre de variables à mesurer - **Communication** : Difficile de traduire les résultats en recommandations actionables
-
-#### 4.5.2 Recommandations d'usage
-
-**Utiliser PCR quand :** - Les données sont en très haute dimension (p \>\> n) - L'information est distribuée dans de nombreuses variables - La stabilité numérique est prioritaire - Les méthodes de sélection (Lasso, tests univariés) échouent - Le contexte permet des variables latentes (finance quantitative, bioinformatique)
-
-**Préférer Lasso quand :** - L'interprétabilité directe est cruciale - Le budget limite le nombre de variables mesurables - Quelques variables ont des effets forts et individualisables - Le domaine nécessite des recommandations actionables précises
-
-**Compromis FAMD-PCR vs PCR Classique :** - **FAMD-PCR** : Données avec forte proportion de variables catégorielles, besoin de préserver la nature des variables - **PCR Classique** : Compatibilité avec des pipelines existants, majorité de variables numériques
-
-#### 4.5.3 Perspective méthodologique
-
-La comparaison entre PCR et Lasso illustre un débat fondamental en apprentissage statistique : **sélection vs transformation**. Nos résultats suggèrent que dans les contextes de haute dimension avec signal distribué, les approches de transformation (PCR, PLS) peuvent surpasser les méthodes de sélection stricte. Cette observation est particulièrement pertinente pour les domaines émergents où l'on dispose de nombreuses mesures potentiellement informatives mais individuellement faibles.
-
-## 5. Comparaison technique des deux approches PCR
-
-Après avoir analysé le positionnement théorique de la PCR face au Lasso, nous nous concentrons maintenant sur la comparaison pratique entre les deux implémentations de PCR étudiées : FAMD-PCR et PCR Classique. Cette analyse technique détaille leurs performances relatives et leurs spécificités d'implémentation.
-
-### 5.1 Tableau comparatif des performances
-
-```{r comparison_table}
-# Création du tableau de comparaison
-comparison_df <- data.frame(
-  Methode = c("FAMD-PCR", "PCR Classique"),
-  Nb_Composantes = c(ncomp_famd, ncomp_pca),
-  Accuracy = c(paste0(round(famd_results["Accuracy"], 3), " ± ", round(famd_sd["Accuracy"], 3)),
-               paste0(round(pca_results["Accuracy"], 3), " ± ", round(pca_sd["Accuracy"], 3))),
-  Sensitivity = c(paste0(round(famd_results["Sensitivity"], 3), " ± ", round(famd_sd["Sensitivity"], 3)),
-                  paste0(round(pca_results["Sensitivity"], 3), " ± ", round(pca_sd["Sensitivity"], 3))),
-  Specificity = c(paste0(round(famd_results["Specificity"], 3), " ± ", round(famd_sd["Specificity"], 3)),
-                  paste0(round(pca_results["Specificity"], 3), " ± ", round(pca_sd["Specificity"], 3)))
+# Résumé des prédictions continues
+pred_summary_numeric <- data.frame(
+  Statistique = c("Exemple (6 premiers)", "Minimum", "Maximum"),
+  Valeur = c(paste(round(head(pred_continuous), 3), collapse=", "), 
+             round(min(pred_continuous), 3), 
+             round(max(pred_continuous), 3))
 )
+print(pred_summary_numeric)
 
-cat("=== TABLEAU COMPARATIF ===\n")
-print(comparison_df)
+# Classification par seuillage
+pred_class_numeric <- ifelse(pred_continuous > 0.5, "AML", "ALL")
+pred_class_numeric <- factor(pred_class_numeric, levels = levels(y_test))
+
+# Métriques
+accuracy_numeric <- mean(pred_class_numeric == y_test)
+confusion_numeric <- table(Predicted = pred_class_numeric, Actual = y_test)
+
+print(paste("Accuracy PCR classique:", round(accuracy_numeric, 3)))
+print("Matrice de confusion PCR classique:")
+print(confusion_numeric)
+
+# Approche 2: PCR Adaptée (cible catégorielle)
+print("Approche 2: PCR Adaptée (cible catégorielle)")
+
+# Modèle de régression logistique (déjà calculé précédemment)
+model_pcr_categorical <- model_classical  # Réutiliser le modèle déjà créé
+
+# Prédictions probabilistes
+pred_probabilities <- predict(model_pcr_categorical, test_data_classical, type = "response")
+
+# Résumé des probabilités prédites
+pred_summary_categorical <- data.frame(
+  Statistique = c("Exemple (6 premiers)", "Minimum", "Maximum"),
+  Valeur = c(paste(round(head(pred_probabilities), 3), collapse=", "), 
+             round(min(pred_probabilities), 3), 
+             round(max(pred_probabilities), 3))
+)
+print(pred_summary_categorical)
+
+# Classification
+pred_class_categorical <- ifelse(pred_probabilities > 0.5, "AML", "ALL")
+pred_class_categorical <- factor(pred_class_categorical, levels = levels(y_test))
+
+# Métriques (déjà calculées)
+accuracy_categorical <- accuracy_pcr2
+confusion_categorical <- confusion_matrix_classical
+
+print(paste("Accuracy PCR adaptée:", round(accuracy_categorical, 3)))
+print("Matrice de confusion PCR adaptée:")
+print(confusion_categorical)
+
+# ===== CALCUL DE MÉTRIQUES DÉTAILLÉES =====
+calculate_detailed_metrics <- function(conf_matrix) {
+  if(all(c("ALL", "AML") %in% rownames(conf_matrix)) && all(c("ALL", "AML") %in% colnames(conf_matrix))) {
+    tp <- conf_matrix["AML", "AML"]  # Vrais positifs
+    tn <- conf_matrix["ALL", "ALL"]  # Vrais négatifs
+    fp <- conf_matrix["AML", "ALL"]  # Faux positifs
+    fn <- conf_matrix["ALL", "AML"]  # Faux négatifs
+    
+    sensitivity <- tp / (tp + fn)  # Sensibilité (rappel pour AML)
+    specificity <- tn / (tn + fp)  # Spécificité
+    precision <- tp / (tp + fp)    # Précision pour AML
+    
+    return(list(sensitivity = sensitivity, specificity = specificity, precision = precision))
+  } else {
+    return(list(sensitivity = NA, specificity = NA, precision = NA))
+  }
+}
+
+metrics_numeric <- calculate_detailed_metrics(confusion_numeric)
+metrics_categorical <- calculate_detailed_metrics(confusion_categorical)
+
+# Métriques détaillées comparatives
+cat("**Métriques détaillées - PCR Classique (numérique):**\n")
+metrics_table_numeric <- data.frame(
+  Metrique = c("Sensibilité (détection AML)", "Spécificité (détection ALL)", "Précision (AML prédits)"),
+  Valeur = round(c(metrics_numeric$sensitivity, metrics_numeric$specificity, metrics_numeric$precision), 3)
+)
+format_table(metrics_table_numeric, 
+             caption = "Métriques détaillées - Approche numérique",
+             col_names = c("Métrique", "Valeur"))
+
+cat("\n**Métriques détaillées - PCR Adaptée (catégorielle):**\n")
+metrics_table_categorical <- data.frame(
+  Metrique = c("Sensibilité (détection AML)", "Spécificité (détection ALL)", "Précision (AML prédits)"),
+  Valeur = round(c(metrics_categorical$sensitivity, metrics_categorical$specificity, metrics_categorical$precision), 3)
+)
+format_table(metrics_table_categorical, 
+             caption = "Métriques détaillées - Approche catégorielle",
+             col_names = c("Métrique", "Valeur"))
 ```
 
-### 5.2 Visualisations comparatives
+### Synthèse comparative et visualisations
 
-```{r comparison_plots}
-# Graphique de comparaison des Scree plots
-par(mfrow = c(1, 2))
+```{r comparative_summary}
+# Tableau comparatif des résultats
+comparative_results <- data.frame(
+  Approche = c("PCR Classique (numérique)", "PCR Adaptée (catégorielle)"),
+  Accuracy = c(accuracy_numeric, accuracy_categorical),
+  Sensibilite = c(metrics_numeric$sensitivity, metrics_categorical$sensitivity),
+  Specificite = c(metrics_numeric$specificity, metrics_categorical$specificity),
+  Precision = c(metrics_numeric$precision, metrics_categorical$precision)
+)
 
-# Scree plot FAMD
-plot(1:min(15, length(variance_explained)), variance_explained[1:min(15, length(variance_explained))], 
-     type = "b", col = "blue", main = "FAMD - Variance expliquée", 
-     xlab = "Composante", ylab = "% Variance", ylim = c(0, max(variance_explained[1:15], na.rm = TRUE)))
-abline(v = ncomp_famd, col = "blue", lty = 2)
+format_table(round(comparative_results[, -1], 3), 
+             caption = "**Tableau 8**: Comparaison détaillée des approches PCR",
+             col_names = c("Accuracy", "Sensibilité", "Spécificité", "Précision"))
 
-# Scree plot PCA
-plot(1:min(15, length(pca_variance)), pca_variance[1:min(15, length(pca_variance))], 
-     type = "b", col = "red", main = "PCA - Variance expliquée", 
-     xlab = "Composante", ylab = "% Variance", ylim = c(0, max(pca_variance[1:15], na.rm = TRUE)))
-abline(v = ncomp_pca, col = "red", lty = 2)
+# Visualisations comparatives
+par(mfrow = c(2, 2))
+
+# 1. Comparaison des accuracies
+barplot(comparative_results$Accuracy,
+        names.arg = c("PCR\nClassique", "PCR\nAdaptée"),
+        col = c("lightblue", "lightgreen"),
+        ylim = c(0, 1),
+        main = "Accuracy",
+        ylab = "Accuracy")
+text(1:2, comparative_results$Accuracy + 0.05,
+     labels = round(comparative_results$Accuracy, 3),
+     pos = 3)
+
+# 2. Comparaison des sensibilités
+barplot(comparative_results$Sensibilite,
+        names.arg = c("PCR\nClassique", "PCR\nAdaptée"),
+        col = c("lightcoral", "lightblue"),
+        ylim = c(0, 1),
+        main = "Sensibilité (détection AML)",
+        ylab = "Sensibilité")
+text(1:2, comparative_results$Sensibilite + 0.05,
+     labels = round(comparative_results$Sensibilite, 3),
+     pos = 3)
+
+# 3. Comparaison des spécificités
+barplot(comparative_results$Specificite,
+        names.arg = c("PCR\nClassique", "PCR\nAdaptée"),
+        col = c("lightyellow", "lightpink"),
+        ylim = c(0, 1),
+        main = "Spécificité (détection ALL)",
+        ylab = "Spécificité")
+text(1:2, comparative_results$Specificite + 0.05,
+     labels = round(comparative_results$Specificite, 3),
+     pos = 3)
+
+# 4. Comparaison des précisions
+barplot(comparative_results$Precision,
+        names.arg = c("PCR\nClassique", "PCR\nAdaptée"),
+        col = c("lightsteelblue", "lightseagreen"),
+        ylim = c(0, 1),
+        main = "Précision (prédictions AML)",
+        ylab = "Précision")
+text(1:2, comparative_results$Precision + 0.05,
+     labels = round(comparative_results$Precision, 3),
+     pos = 3)
 
 par(mfrow = c(1, 1))
 
-# Boxplots de comparaison des performances (version simplifiée)
-# Graphique des performances en barres
-performance_means <- c(famd_results["Accuracy"], pca_results["Accuracy"])
-performance_sds <- c(famd_sd["Accuracy"], pca_sd["Accuracy"])
-method_names <- c("FAMD-PCR", "PCR Classique")
+# Analyse des distributions des prédictions
+par(mfrow = c(1, 2))
 
-barplot(performance_means, names.arg = method_names, 
-        main = "Comparaison des performances (Accuracy)",
-        ylab = "Accuracy", col = c("lightblue", "lightcoral"))
+# Distribution des prédictions PCR classique
+hist(pred_continuous, 
+     main = "PCR Classique\nDistribution des prédictions continues",
+     xlab = "Valeur prédite", 
+     ylab = "Fréquence",
+     col = "lightblue",
+     breaks = 10)
+abline(v = 0.5, col = "red", lwd = 2, lty = 2)
 
-# Ajouter les barres d'erreur
-arrows(x0 = c(0.7, 1.9), y0 = performance_means - performance_sds,
-       x1 = c(0.7, 1.9), y1 = performance_means + performance_sds,
-       angle = 90, code = 3, length = 0.05)
+# Distribution des probabilités PCR adaptée
+hist(pred_probabilities, 
+     main = "PCR Adaptée\nDistribution des probabilités",
+     xlab = "P(Y = AML)", 
+     ylab = "Fréquence",
+     col = "lightgreen",
+     breaks = 10)
+abline(v = 0.5, col = "red", lwd = 2, lty = 2)
+
+par(mfrow = c(1, 1))
 ```
 
-### 5.3 Analyse de la sparsité et des coefficients
+### Analyse critique des avantages et inconvénients
 
-```{r sparsity_analysis}
-# Analyse de la complexité des modèles
+#### Validité statistique
 
-# Pour FAMD-PCR: analyser les contributions des variables aux composantes
-cat("=== ANALYSE DE LA COMPLEXITÉ ===\n")
-cat("FAMD-PCR:\n")
-cat("- Variables numériques impliquées:", p_num, "\n")
-cat("- Variables catégorielles impliquées:", p_cat, "\n")
-cat("- Total variables originales:", p_num + p_cat, "\n")
-cat("- Composantes utilisées:", ncomp_famd, "\n")
-cat("- Réduction de dimension:", round((1 - ncomp_famd/(p_num + p_cat)) * 100, 1), "%\n\n")
+**PCR Classique (cible numérique) :**
+- ❌ **Violation des hypothèses** : La régression linéaire suppose une relation linéaire et une distribution normale des résidus, inadaptées à une variable binaire
+- ❌ **Homoscédasticité** : La variance des résidus n'est pas constante pour une variable binaire
+- ❌ **Prédictions aberrantes** : Possibilité de prédire des valeurs < 0 ou > 1, sans interprétation probabiliste
+- ❌ **Seuillage arbitraire** : Le choix du seuil 0.5 peut être sous-optimal
 
-cat("PCR Classique:\n")
-cat("- Variables après encodage:", ncol(X_encoded), "\n")
-cat("- Variables catégorielles encodées:", ncol(X_encoded) - p_num, "\n")
-cat("- Composantes utilisées:", ncomp_pca, "\n")
-cat("- Réduction de dimension:", round((1 - ncomp_pca/ncol(X_encoded)) * 100, 1), "%\n\n")
+**PCR Adaptée (cible catégorielle) :**
+- ✅ **Modèle approprié** : La régression logistique est spécifiquement conçue pour les variables catégorielles
+- ✅ **Hypothèses respectées** : Pas d'hypothèse de normalité des résidus
+- ✅ **Interprétation probabiliste** : Prédictions entre 0 et 1 avec interprétation naturelle
+- ✅ **Flexibilité** : Possibilité d'ajuster le seuil de décision selon le contexte
 
-# Efficacité de la réduction
-cat("Efficacité de la réduction dimensionnelle:\n")
-cat("- FAMD-PCR: de", p_num + p_cat, "variables à", ncomp_famd, "composantes\n")
-cat("- PCR Classique: de", ncol(X_encoded), "variables à", ncomp_pca, "composantes\n")
+#### Interprétabilité
+
+**PCR Classique :**
+- ❌ **Prédictions continues ambiguës** : Une prédiction de 0.3 ou 0.7 n'a pas de sens intuitif
+- ❌ **Coefficients difficiles à interpréter** : Relation linéaire forcée inappropriate
+- ⚠️ **Diagnostic du modèle complexe** : Les résidus ne suivent pas les patterns attendus
+
+**PCR Adaptée :**
+- ✅ **Probabilités interprétables** : P(Y="AML") = 0.7 signifie 70% de chance d'être AML
+- ✅ **Coefficients logistiques** : Impact multiplicatif sur les odds, interprétation standard
+- ✅ **Diagnostic approprié** : Courbes ROC, tests de Hosmer-Lemeshow disponibles
+
+#### Performance prédictive
+
+**Observations sur notre jeu de données :**
+- Accuracy PCR Classique : `r round(accuracy_numeric, 3)`
+- Accuracy PCR Adaptée : `r round(accuracy_categorical, 3)`
+
+**Analyse :**
+- Les performances peuvent être similaires sur certains jeux de données
+- La PCR adaptée est généralement plus stable et robuste
+- Moins de risque de sur-ajustement avec la régression logistique
+
+#### Pertinence méthodologique
+
+**PCR Classique :**
+- ⚠️ **Usage déconseillé** pour variables catégorielles en général
+- ⚠️ **Acceptable uniquement** comme approximation grossière en exploration préliminaire
+- ❌ **Non recommandée** pour publication scientifique ou prise de décision
+
+**PCR Adaptée :**
+- ✅ **Standard méthodologique** pour classification avec réduction de dimension
+- ✅ **Acceptée académiquement** et professionnellement
+- ✅ **Extensible** à la classification multiclasse (régression logistique multinomiale)
+
+#### Autres méthodes de réduction de dimension pour la classification
+
+Bien que la PCR adaptée soit supérieure à la PCR classique, d'autres méthodes spécialisées méritent d'être considérées :
+
+#### PLS-DA (Partial Least Squares - Discriminant Analysis)
+
+**Principe :**
+- Méthode **supervisée** qui utilise l'information de la variable cible lors de la réduction de dimension
+- Trouve des composantes qui maximisent à la fois la variance des X et la covariance X-Y
+- Particulièrement efficace en haute dimension
+
+**Implémentation conceptuelle :**
+```{r pls_da_concept, eval=FALSE}
+# Pseudo-code PLS-DA
+# 1. Encoder Y en matrice binaire (ALL=[1,0], AML=[0,1])
+# 2. Trouver composantes t_h qui maximisent Cov(X, Y)
+# 3. Classification sur les composantes t_h
 ```
 
-## 6. Conclusions et recommandations
+**Avantages :**
+- ✅ Optimisation directe pour la discrimination
+- ✅ Souvent plus performante que PCR en classification
+- ✅ Moins de composantes nécessaires
 
-### 6.1 Analyse des résultats
+**Inconvénients :**
+- ❌ Plus complexe à interpréter que PCR
+- ❌ Risque de sur-ajustement si mal régularisée
 
-```{r conclusions}
-cat("=== SYNTHÈSE COMPARATIVE ===\n\n")
+#### ACP + LDA (Analyse en Composantes Principales + Analyse Discriminante Linéaire)
 
-# Comparaison directe des performances moyennes
-cat("Performance comparative:\n")
-better_method <- ifelse(famd_results["Accuracy"] > pca_results["Accuracy"], "FAMD-PCR", "PCR Classique")
-cat("✓", better_method, "présente une meilleure accuracy moyenne\n")
+**Principe :**
+- **Étape 1** : ACP non supervisée pour réduction de dimension
+- **Étape 2** : LDA sur les composantes principales pour classification optimale
+- Combinaison de deux méthodes classiques bien établies
 
-# Comparaison du nombre de composantes
-cat("\nEfficacité de la réduction dimensionnelle:\n")
-if (ncomp_famd < ncomp_pca) {
-  cat("✓ FAMD-PCR utilise moins de composantes (", ncomp_famd, "vs", ncomp_pca, ")\n")
-} else if (ncomp_famd > ncomp_pca) {
-  cat("✓ PCR Classique utilise moins de composantes (", ncomp_pca, "vs", ncomp_famd, ")\n")
+```{r acp_lda_implementation}
+# Implémentation ACP + LDA
+print("Implémentation ACP + LDA")
+
+# Utiliser les composantes principales déjà calculées
+library(MASS)
+
+# LDA sur les composantes principales (utilisation de 85% variance)
+lda_model <- lda(Y ~ ., data = train_data_classical)
+
+# Prédictions LDA
+lda_predictions <- predict(lda_model, test_data_classical)
+pred_class_lda <- lda_predictions$class
+accuracy_lda <- mean(pred_class_lda == y_test)
+
+# Matrice de confusion
+confusion_lda <- table(Predicted = pred_class_lda, Actual = y_test)
+
+# Probabilités postérieures LDA
+lda_probabilities <- lda_predictions$posterior[, "AML"]
+
+# Résultats ACP + LDA
+lda_results <- data.frame(
+  Metrique = c("Accuracy ACP + LDA", "Exemple probabilités"),
+  Valeur = c(round(accuracy_lda, 3), paste(round(head(lda_probabilities), 3), collapse=", "))
+)
+print(lda_results)
+
+print("Matrice de confusion ACP + LDA:")
+print(confusion_lda)
+```
+
+**Avantages de ACP + LDA :**
+- ✅ Méthode classique bien établie et comprise
+- ✅ Optimisation spécifique pour la séparabilité des classes
+- ✅ Interprétation géométrique claire (axes discriminants)
+- ✅ Robuste et stable
+
+**Inconvénients :**
+- ❌ Hypothèse de normalité multivariée
+- ❌ Moins flexible que la régression logistique
+- ❌ Peut être sensible aux données aberrantes
+
+#### Comparaison des quatre méthodes
+
+```{r comparison_four_methods}
+# Récapitulatif des quatre approches
+methods_comparison <- data.frame(
+  Methode = c("PCR Classique", "PCR Adaptée", "ACP + LDA", "PLS-DA (théorique)"),
+  Accuracy = c(accuracy_numeric, accuracy_categorical, accuracy_lda, NA),
+  Type = c("Non supervisée", "Non supervisée", "Hybride", "Supervisée"),
+  Validite_Statistique = c("Faible", "Forte", "Forte", "Forte"),
+  Interpretabilite = c("Difficile", "Bonne", "Très bonne", "Moyenne")
+)
+
+print("Comparaison des quatre méthodes :")
+print(methods_comparison)
+
+# Graphique comparatif des accuracies
+accuracies_plot <- c(accuracy_numeric, accuracy_categorical, accuracy_lda)
+method_names <- c("PCR\nClassique", "PCR\nAdaptée", "ACP +\nLDA")
+
+barplot(accuracies_plot,
+        names.arg = method_names,
+        col = c("lightcoral", "lightblue", "lightgreen"),
+        ylim = c(0, 1),
+        main = "Comparaison des performances\n(Accuracy sur données test)",
+        ylab = "Accuracy")
+text(1:3, accuracies_plot + 0.05,
+     labels = round(accuracies_plot, 3),
+     pos = 3)
+```
+
+## 5. Décision pour la Question 4 du projet
+
+### 5.1 Synthèse de notre analyse préliminaire
+
+Après cette investigation approfondie, **nos conclusions sont claires** :
+
+#### ✅ Approche retenue : PCR adaptée (ACP + régression logistique)
+
+**Justifications pour la Question 4 :**
+
+1. **Validité statistique** : Respecte la nature catégorielle de notre variable Y
+2. **Performance** : Accuracy de `r round(accuracy_pcr1, 3)` sur nos données test
+3. **Robustesse** : Méthode reconnue académiquement et utilisée en pratique
+4. **Comparabilité** : Permettra une comparaison équitable avec le Lasso dans la Question 4
+
+#### ❌ Approche écartée : PCR avec transformation numérique 
+
+**Raisons du rejet :**
+- Accuracy similaire (`r round(accuracy_numeric, 3)`) mais **méthodologiquement incorrecte**
+- Violation des hypothèses de la régression linéaire
+- Prédictions sans interprétation probabiliste cohérente
+
+### 5.2 Implémentation finale pour la Question 4
+
+**Notre choix technique pour la suite du projet :**
+
+```{r final_choice_summary}
+final_choice <- data.frame(
+  Element = c("Méthode PCR retenue", "Critère de sélection", "Nombre optimal composantes", "Performance de référence"),
+  Valeur = c("ACP + Régression Logistique", "Validation croisée", optimal_ncomp, round(accuracy_pcr1, 3))
+)
+
+# Choix final avec formatage approprié
+if (use_kableExtra) {
+  kable(final_choice, 
+        caption = "**Tableau 9**: Choix final pour la Question 4 du projet",
+        col.names = c("Élément", "Valeur")) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
+    column_spec(2, bold = TRUE, color = "#155724", background = "#d4edda")
 } else {
-  cat("= Les deux méthodes utilisent le même nombre de composantes (", ncomp_famd, ")\n")
+  format_table(final_choice, 
+               caption = "**Tableau 9**: Choix final pour la Question 4 du projet",
+               col_names = c("Élément", "Valeur"))
 }
 
-cat("\nComplexité computationnelle:\n")
-cat("- FAMD-PCR traite directement les données mixtes sans préprocessing lourd\n")
-cat("- PCR Classique nécessite un encodage dummy qui augmente la dimensionnalité de", 
-    ncol(X_encoded) - (p_num + p_cat), "variables\n")
-
-cat("\nGestion des données mixtes:\n")
-cat("- FAMD-PCR: méthode spécialisée qui préserve la nature des types de variables\n")
-cat("- PCR Classique: transformation uniformisante vers le numérique\n")
-
-cat("\nStabilité des résultats:\n")
-cat("- FAMD-PCR: écart-type accuracy =", round(famd_sd["Accuracy"], 3), "\n")
-cat("- PCR Classique: écart-type accuracy =", round(pca_sd["Accuracy"], 3), "\n")
-
-more_stable <- ifelse(famd_sd["Accuracy"] < pca_sd["Accuracy"], "FAMD-PCR", "PCR Classique")
-cat("✓", more_stable, "montre une meilleure stabilité\n")
+cat("\nCette approche sera utilisée pour :\n")
+cat("- Réaliser la PCR de la Question 4\n")
+cat("- Comparer avec les résultats du Lasso\n") 
+cat("- Discuter les différences d'approche\n")
+cat("- Analyser ce qu'on perd en passant aux composantes principales\n")
 ```
 
-### 6.2 Recommandations pratiques
+### 5.3 Préparation de la comparaison PCR vs Lasso
 
-**Quand utiliser FAMD-PCR:** - Données avec un mélange significatif de variables numériques et catégorielles - Besoin de préserver la nature catégorielle des variables dans l'analyse - Situations où l'interprétation des composantes en termes de types de variables est importante - Contextes où la réduction de dimension doit tenir compte naturellement des deux types de données
+**Points de comparaison prévus :**
 
-**Quand utiliser PCR Classique:** - Majorité de variables numériques avec quelques variables catégorielles - Variables catégorielles avec peu de modalités (pour éviter l'explosion dimensionnelle) - Compatibilité requise avec des pipelines de ML existants basés sur des données numériques - Situations où la performance prédictive prime sur l'interprétabilité
+1. **Performance prédictive** : Accuracy, sensibilité, spécificité
+2. **Complexité du modèle** : Nombre de variables/composantes utilisées  
+3. **Interprétabilité** : Variables sélectionnées vs composantes principales
+4. **Stabilité** : Robustesse face aux variations des données
 
-**Points clés de la comparaison:**
+### 5.4 Réponse à la question guidée
 
-1.  **Préprocessing:** FAMD-PCR traite directement les données mixtes, tandis que PCR Classique nécessite un encodage manuel préalable
+**"Que perd-on en passant des variables initiales aux composantes principales ?"**
 
-2.  **Dimensionnalité:** L'encodage dummy du PCR Classique peut augmenter significativement le nombre de variables
+Notre analyse nous permettra de quantifier :
+- **Perte d'interprétabilité directe** : Les PC sont des combinaisons linéaires abstraites
+- **Perte de parcimonie** : Toutes les variables contribuent vs sélection Lasso
+- **Gain en stabilité numérique** : Réduction p >> n → quelques composantes
+- **Gain en performance** : À évaluer empiriquement vs Lasso
 
-3.  **Interprétabilité:** FAMD-PCR conserve la distinction entre types de variables dans les composantes
+### Conclusion de cette étude préliminaire
 
-4.  **Performance:** Les deux méthodes montrent des performances comparables dans notre étude
+::: {.callout-important}
+## 🎯 Décision méthodologique pour la Question 4
 
-**Limites de l'étude:** - Jeu de données simulé relativement petit (n=72) - Nombre limité de variables catégorielles (5) - Validation sur un seul type de problème (classification binaire) - Absence de données réelles avec structures complexes
+Cette analyse comparative nous a permis de **faire un choix méthodologique éclairé**. Nous procéderons maintenant à l'implémentation de la **Question 4 avec la PCR adaptée**, confiants dans la validité statistique de notre approche et prêts à la comparer rigoureusement avec le Lasso.
 
-**Conclusion:** Les deux approches constituent des alternatives viables pour la classification de données mixtes via PCR. Le choix dépend principalement du contexte d'application, de la nature des données et des priorités en termes d'interprétabilité versus performance.
+**Approche retenue** : PCR adaptée (ACP + régression logistique) avec sélection du nombre de composantes par validation croisée.
+:::
+
+Cette analyse comparative nous a permis de **faire un choix méthodologique éclairé**. Nous procéderons maintenant à l'implémentation de la **Question 4 avec la PCR adaptée**, confiants dans la validité statistique de notre approche et prêts à la comparer rigoureusement avec le Lasso.
+|-------------------|-------------------|---------------|
+| **Performance maximale** | PLS-DA > ACP+LDA > PCR adaptée | Optimisation supervisée |
+| **Simplicité d'implémentation** | PCR adaptée | Packages R standards |
+| **Interprétabilité** | ACP+LDA > PCR adaptée | Axes discriminants clairement définis |
+| **Robustesse** | PCR adaptée | Moins d'hypothèses restrictives |
+| **Publication scientifique** | ACP+LDA ou PLS-DA | Méthodes reconnues académiquement |
+
+#### Considérations pour l'extension multiclasse
+
+Notre exemple traite d'une classification binaire (ALL vs AML), mais les principes s'étendent naturellement :
+
+- **PCR adaptée** : Régression logistique multinomiale
+- **ACP + LDA** : LDA multiclasse directement
+- **PLS-DA** : PLS-DA multiclasse
+
+#### Validation et évaluation
+
+**Métriques recommandées :**
+- Accuracy globale (utilisée ici)
+- Sensibilité et spécificité par classe
+- Courbes ROC et AUC (pour l'approche probabiliste)
+- Validation croisée k-fold pour robustesse
+
+**Diagnostic du modèle :**
+- Analyse des résidus (pour régression logistique)
+- Test de normalité multivariée (pour LDA)
+- Analyse de la séparabilité des classes
+
+#### Conclusion générale
+
+Cette comparaison démontre clairement que :
+
+1. **La PCR classique avec transformation numérique est méthodologiquement incorrecte** pour une variable cible catégorielle
+2. **La PCR adaptée (ACP + régression logistique) constitue une approche valide et robuste** pour la classification en haute dimension
+3. **Les méthodes spécialisées (ACP+LDA, PLS-DA) peuvent offrir de meilleures performances** selon le contexte
+4. **Le choix final dépend du compromis entre performance, interprétabilité et complexité d'implémentation**
+
+Dans le contexte de données de haute dimension (p >> n), toutes les méthodes appropriées (PCR adaptée, ACP+LDA, PLS-DA) offrent une solution efficace au problème de dimensionnalité tout en respectant la nature catégorielle de la variable à expliquer.
