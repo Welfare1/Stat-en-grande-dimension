@@ -195,112 +195,70 @@ res.svm
 
 ```
 
-## 4. Régression sur composantes principales (PCR)
+## 4. Analyse par Régression sur Composantes Principales (PCR)
 
-La régression sur composantes principales (PCR) est une technique qui combine l'Analyse en Composantes Principales (ACP) avec une régression. Contrairement au Lasso qui effectue une sélection directe de variables, la PCR utilise des combinaisons linéaires de toutes les variables explicatives.
+La régression sur composantes principales (PCR) permet de réduire la dimensionnalité tout en conservant l’information prédictive. Nous comparons ici deux stratégies pour choisir le nombre optimal de composantes : (1) sélection par validation croisée (MSEP minimal), (2) sélection par variance expliquée cumulée (seuil 85 %). Nous confrontons également la PCR au Lasso, et discutons l’interprétabilité et la pertinence de chaque approche.
 
-### Mise en œuvre de la PCR
-
-```{r, message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 library(pls)
+library(glmnet)
+library(dplyr)
 
-# Création d'une variable numérique pour PCR/PLS
-df$Y_num <- as.numeric(df$Y == "AML")  # AML = 1, ALL = 0
-
-# PCR avec validation croisée
+# Codage binaire pour la variable réponse
 set.seed(12311)
-pcr_model <- pcr(Y_num ~ . - Y, data = df, 
-                 scale = TRUE, 
-                 validation = "CV", 
-                 segments = 10)
+df$Y_num <- as.numeric(df$Y == "AML")
 
-# Visualisation de l'erreur de validation croisée
-validationplot(pcr_model, val.type = "MSEP", 
-               main = "PCR - Erreur de validation croisée")
-
-# Extraction du nombre optimal de composantes
+# --- PCR avec validation croisée 10-fold ---
+pcr_model <- pcr(Y_num ~ . - Y, data = df, scale = TRUE, validation = "CV", segments = 10)
+validationplot(pcr_model, val.type = "MSEP", main = "PCR - Erreur de validation croisée")
 msep_pcr <- MSEP(pcr_model)
 ncomp_optimal <- which.min(msep_pcr$val[1,1,])
 cat("Nombre optimal de composantes PCR:", ncomp_optimal, "\n")
 cat("MSEP minimal:", round(min(msep_pcr$val[1,1,]), 4), "\n")
 
-# Affichage de l'évolution de l'erreur
-plot(msep_pcr$val[1,1,], type = "b", col = "blue",
-     main = "PCR - Évolution MSEP selon le nombre de composantes", 
-     xlab = "Nombre de composantes", ylab = "MSEP")
-abline(v = ncomp_optimal, col = "red", lty = 2)
-text(ncomp_optimal + 5, min(msep_pcr$val[1,1,]), 
-     paste("Optimal:", ncomp_optimal), col = "red")
-```
-
-### Analyse des performances PCR
-
-```{r}
 # Prédictions avec le nombre optimal de composantes
 pred_pcr <- predict(pcr_model, ncomp = ncomp_optimal)
 pred_pcr_class <- ifelse(pred_pcr > 0.5, "AML", "ALL")
+accuracy_pcr <- sum(diag(table(Predicted = pred_pcr_class, Actual = df$Y))) / length(df$Y)
 
-# Matrice de confusion
-table_pcr <- table(Predicted = pred_pcr_class, Actual = df$Y)
-accuracy_pcr <- sum(diag(table_pcr)) / sum(table_pcr)
+# --- PCR avec seuil de variance expliquée (85%) ---
+X_pca <- df %>% select(-Y, -Y_num)
+pca_res <- prcomp(X_pca, scale. = TRUE)
+var_cum <- cumsum(pca_res$sdev^2) / sum(pca_res$sdev^2)
+ncomp_var <- which(var_cum >= 0.85)[1]
+pc_df <- as.data.frame(pca_res$x[, 1:ncomp_var])
+pc_df$Y_num <- df$Y_num
+mod_var <- glm(Y_num ~ ., data = pc_df, family = binomial)
 
-cat("=== RÉSULTATS PCR ===\n")
-cat("Nombre de composantes utilisées:", ncomp_optimal, "sur", ncol(df)-2, "variables\n")
-cat("Réduction de dimension:", round((1 - ncomp_optimal/(ncol(df)-2)) * 100, 1), "%\n")
-cat("MSEP minimal:", round(min(msep_pcr$val[1,1,]), 4), "\n")
-cat("\nMatrice de confusion PCR:\n")
-print(table_pcr)
-cat("\nPrécision PCR:", round(accuracy_pcr * 100, 2), "%\n")
+# --- MSEP pour chaque stratégie ---
+pred_cv <- predict(pcr_model, ncomp = ncomp_cv)
+msep_cv <- mean((df$Y_num - pred_cv)^2)
+pred_var <- predict(mod_var, type = "response")
+msep_var <- mean((df$Y_num - pred_var)^2)
+
+# --- Lasso pour comparaison ---
+df.X <- model.matrix(Y~., data=df)
+reg.cvlasso <- cv.glmnet(df.X, df$Y, family="binomial", alpha=1)
+coef_lasso <- coef(reg.cvlasso)
+nb_var_lasso <- sum(coef_lasso != 0) - 1  # -1 pour l'intercept
+
+# --- Tableau comparatif ---
+comparison <- data.frame(
+  Méthode = c("PCR_CV", "PCR_Variance", "Lasso"),
+  N_composantes_variables = c(ncomp_cv, ncomp_var, nb_var_lasso),
+  MSEP = c(round(msep_cv, 4), round(msep_var, 4), "N/A"),
+  Critère = c("Validation croisée", "Variance expliquée (85%)", "Sélection L1")
+)
+print(comparison)
 ```
 
-### Comparaison PCR vs Lasso
+**Résultats :** - Nombre optimal de composantes par validation croisée : `r ncomp_cv` - Nombre de composantes pour 85 % de variance expliquée : `r ncomp_var` - Nombre de variables sélectionnées par Lasso : `r nb_var_lasso` - MSEP (PCR_CV) : `r round(msep_cv, 4)` - MSEP (PCR_Variance) : `r round(msep_var, 4)`
 
-D'après les résultats de la section 3, nous avons observé que :
+**Analyse comparative :** - La PCR par validation croisée (PCR_CV) donne la meilleure performance prédictive (MSEP minimal), car elle optimise directement l’erreur de prédiction. - La PCR par variance expliquée (PCR_Variance) retient souvent plus de composantes, sans garantie de performance optimale. - Le Lasso n’a sélectionné que `r nb_var_lasso` variable(s), confirmant la difficulté à identifier des prédicteurs individuels discriminants dans ce contexte p ≫ n.
 
-**Lasso :**
+**Interprétabilité :** - La PCR (quelle que soit la stratégie) sacrifie l’interprétabilité directe, car les composantes sont des combinaisons linéaires de toutes les variables. - Le Lasso, en théorie, permet une sélection parcimonieuse et interprétable, mais ici il échoue à extraire des variables pertinentes.
 
-\- **Variables sélectionnées :** Aucune (le modèle a éliminé toutes les variables)
-
-\- **Lambda optimal :** 0.18 (régularisation forte)
-
-\- **Approche :** Sélection stricte de variables individuelles
-
-\- **Interprétabilité :** Très élevée (mais aucune variable retenue)
-
-**PCR :**
-
-\- **Composantes utilisées :** `r ncomp_optimal` composantes principales
-
-\- **Approche :** Combinaisons linéaires de toutes les variables
-
-\- **Réduction de dimension :** De 1000 variables à `r ncomp_optimal` composantes
-
-```{r}
-# Comparaison quantitative
-cat("Comparaison Lasso vs PCR:\n")
-cat("- Lasso: 0 variables sélectionnées sur 1000\n")
-cat("- PCR:", ncomp_optimal, "composantes sur 71 possibles\n")
-cat("- Réduction PCR:", round((1000 - ncomp_optimal)/1000 * 100, 1), "% de réduction\n")
-```
-
-### Différence d'approche fondamentale
-
-1.  **Lasso** : Effectue une sélection "dure" - les variables sont soit incluses (coefficient ≠ 0) soit exclues (coefficient = 0)
-2.  **PCR** : Effectue une transformation "douce" - toutes les variables contribuent aux composantes principales mais avec des poids différents
-
-### Question guidée : Que perd-on en passant des variables initiales aux composantes principales ?
-
-En passant des variables initiales aux composantes principales, nous perdons principalement :
-
-1.  **L'interprétabilité directe** : Une composante principale est une combinaison linéaire de toutes les variables. Il devient difficile d'identifier quelles variables originales ont un impact spécifique sur la prédiction.
-
-2.  **La parcimonie** : Contrairement au Lasso qui peut éliminer des variables non informatives, la PCR utilise toutes les variables dans la construction des composantes.
-
-3.  **La signification métier** : Les composantes principales n'ont pas de sens physique ou biologique direct, contrairement aux variables originales qui peuvent représenter des gènes, des biomarqueurs, etc.
-
-Cependant, nous gagnons en **stabilité numérique** et en **capacité à capturer des structures complexes** dans les données.
-
-------------------------------------------------------------------------
+**Recommandation :** Dans ce contexte de grande dimension, la stratégie PCR par validation croisée (PCR_CV) est à privilégier pour la suite de l’analyse, car elle offre le meilleur compromis entre robustesse et performance prédictive. L’interprétation des résultats doit cependant rester prudente, la nature des composantes rendant difficile l’identification de variables explicatives individuelles.
 
 ## 5. Régression PLS discriminante
 
@@ -366,22 +324,6 @@ comparison_data <- data.frame(
 print(comparison_data)
 ```
 
-### Comparaison graphique PCR vs PLS
-
-```{r}
-# Comparaison des courbes d'erreur
-par(mfrow = c(1, 2))
-plot(msep_pcr$val[1,1,], type = "b", col = "blue",
-     main = "PCR - Évolution MSEP", 
-     xlab = "Composantes", ylab = "MSEP")
-abline(v = ncomp_optimal, col = "red", lty = 2)
-
-plot(msep_pls$val[1,1,], type = "b", col = "green",
-     main = "PLS - Évolution MSEP", 
-     xlab = "Composantes", ylab = "MSEP")
-abline(v = ncomp_pls, col = "red", lty = 2)
-```
-
 ### Interprétation des résultats
 
 **Performances relatives :**
@@ -389,7 +331,7 @@ abline(v = ncomp_pls, col = "red", lty = 2)
 1.  **Lasso** : Échec complet - aucune variable sélectionnée
     -   Cela suggère que les variables individuelles n'ont pas d'effet discriminant suffisant
     -   La régularisation L1 a été trop sévère pour ce jeu de données
-2.  **PCR** : Performance modérée avec `r ncomp_optimal` composantes
+2.  **PCR** : Performance modérée avec `r ncomp_cv` composantes
     -   Réussit à capturer des signaux grâce aux combinaisons de variables
     -   Nécessite plus de composantes car elles ne sont pas optimisées pour la prédiction
 3.  **PLS** : Meilleure performance avec `r ncomp_pls` composantes
@@ -399,32 +341,6 @@ abline(v = ncomp_pls, col = "red", lty = 2)
 La méthode PLS est plus performante que la PCR car elle tient compte de la variable à prédire pour construire ses composantes, ce qui permet d’obtenir de bons résultats avec moins de dimensions. Cependant, comme la PCR, elle sacrifie une certaine interprétabilité directe des résultats puisque les prédicteurs utilisés sont des combinaisons linéaires des variables initiales.
 
 Dans un contexte où le nombre de variables est très grand par rapport au nombre d’observations, la PLS discriminante donne de meilleurs résultats que le Lasso et la PCR. Elle capte mieux l’information utile pour la prédiction, mais au prix d’une interprétation plus compliquée des résultats.
-
-```{r}
-# Nombre optimal de composantes pour PLS
-ncomp_pls <- which.min(MSEP(pls_model)$val[1,1,])
-ncomp_pls
-```
-
-Selon la validation croisée, le nombre optimal de composantes pour la régression PLS discriminante est environ `r ncomp_pls` composantes.
-
-### Comparaison des performances PLS vs PCR vs Lasso
-
-| Méthode | Nb composantes/variables retenues | Principe d'approche | Interprétabilité | Performance prédictive |
-|---------------|---------------|---------------|---------------|---------------|
-| Lasso | 0 | Sélection de variables explicites | Très élevée | Faible dans ce cas (aucune variable sélectionnée) |
-| PCR | `r ncomp_optimal` | Combinaisons linéaires maximisant la variance de X | Faible | Modérée à bonne (utilise plusieurs composantes) |
-| PLS | `r ncomp_pls` | Combinaisons linéaires maximisant la covariance X\~Y | Faible à modérée | Bonne à très bonne (utilise peu de composantes) |
-
-### Interprétation des résultats obtenus (PLS vs PCR vs Lasso)
-
--   **Régression Lasso** : Dans ce cas précis, aucune variable n'est sélectionnée, ce qui indique que les variables prises individuellement n'ont pas un effet assez fort pour être retenues par le modèle. Cela peut être dû à une forte régularisation ou à une absence de lien direct simple entre variables explicatives et réponse.
-
--   **PCR** : La PCR capture l'information présente dans les variables explicatives via des combinaisons linéaires (composantes principales). Cependant, ces composantes principales sont calculées uniquement en fonction de l'information contenue dans les variables explicatives (variance maximale) sans considérer directement la variable réponse.
-
--   **PLS** : Contrairement à la PCR, la PLS discriminante construit des composantes qui maximisent directement leur covariance avec la variable cible. Cela aboutit généralement à un nombre réduit de composantes nécessaires pour obtenir une bonne prédiction. Ainsi, la PLS est plus efficace que la PCR lorsque l'objectif principal est la prédiction.
-
-La régression PLS discriminante se révèle particulièrement intéressante dans ce contexte, car elle permet de réduire efficacement la dimension tout en conservant une forte capacité prédictive. Elle représente un bon compromis entre la sélection stricte de variables (comme en Lasso) et la réduction dimensionnelle purement basée sur la variance (comme en PCR). Cependant, tout comme la PCR, elle sacrifie une certaine interprétabilité directe des résultats puisque les prédicteurs utilisés sont des combinaisons linéaires des variables initiales.
 
 ## 6. Comparaison de méthodes de classification en grande dimension
 
@@ -444,24 +360,20 @@ Dans notre contexte de grande dimension (p = 1000, n = 72), nous comparons trois
 
 En grande dimension, la régression logistique classique devient inapplicable (matrice X'X non inversible). La régularisation Ridge offre une solution en ajoutant une pénalité L2 qui stabilise l'estimation.
 
-**Modèle de régression logistique :**
-$$P(Y = 1|X) = \frac{1}{1 + e^{-X^T\beta}}$$
+**Modèle de régression logistique :** $$P(Y = 1|X) = \frac{1}{1 + e^{-X^T\beta}}$$
 
-**Fonction de coût Ridge :**
-$$J(\beta) = -\frac{1}{n}\sum_{i=1}^{n} \left[ y_i \log(p_i) + (1-y_i) \log(1-p_i) \right] + \lambda \sum_{j=1}^p \beta_j^2$$
+**Fonction de coût Ridge :** $$J(\beta) = -\frac{1}{n}\sum_{i=1}^{n} \left[ y_i \log(p_i) + (1-y_i) \log(1-p_i) \right] + \lambda \sum_{j=1}^p \beta_j^2$$
 
 où $p_i = P(Y = 1|X_i)$ et $\lambda > 0$ est le paramètre de régularisation.
 
-**Estimation :**
-$$\hat{\beta}_{Ridge} = \text{argmin}_{\beta} \left\{ J(\beta) \right\}$$
+**Estimation :** $$\hat{\beta}_{Ridge} = \text{argmin}_{\beta} \left\{ J(\beta) \right\}$$
 
-**Avantages :** Interprétabilité directe des coefficients, stabilité numérique  
+**Avantages :** Interprétabilité directe des coefficients, stabilité numérique\
 **Inconvénients :** Hypothèse de linéarité restrictive en grande dimension
 
 #### Implémentation et évaluation
 
 ```{r, message=FALSE, warning=FALSE}
-# Chargement des bibliothèques nécessaires
 library(glmnet)
 library(caret)
 
@@ -569,28 +481,22 @@ print(logit_results)
 
 ### 6.2 Forêt aléatoire : L'approche par ensemble
 
-La forêt aléatoire est particulièrement adaptée à la grande dimension grâce à ses mécanismes intégrés de régularisation :
-- **Bagging** : Réduction de la variance par moyennage de modèles
-- **Sélection aléatoire** : Seules $m = \sqrt{p}$ variables sont considérées à chaque split
+La forêt aléatoire est particulièrement adaptée à la grande dimension grâce à ses mécanismes intégrés de régularisation : - **Bagging** : Réduction de la variance par moyennage de modèles - **Sélection aléatoire** : Seules $m = \sqrt{p}$ variables sont considérées à chaque split
 
 **Algorithme Random Forest :**
 
-1. **Pour $b = 1, ..., B$ :**
-   - Tirer un échantillon bootstrap $\mathcal{D}_b$ de taille $n$
-   - Construire un arbre $T_b$ sur $\mathcal{D}_b$ avec sélection aléatoire de $m$ variables à chaque nœud
+1.  **Pour** $b = 1, ..., B$ :
+    -   Tirer un échantillon bootstrap $\mathcal{D}_b$ de taille $n$
+    -   Construire un arbre $T_b$ sur $\mathcal{D}_b$ avec sélection aléatoire de $m$ variables à chaque nœud
+2.  **Prédiction finale :** $$\hat{f}_{RF}(x) = \frac{1}{B} \sum_{b=1}^{B} T_b(x)$$
 
-2. **Prédiction finale :**
-$$\hat{f}_{RF}(x) = \frac{1}{B} \sum_{b=1}^{B} T_b(x)$$
-
-**Critère de division - Indice de Gini :**
-$$G_m = \sum_{k=1}^{K} p_{mk}(1 - p_{mk}) = 1 - \sum_{k=1}^{K} p_{mk}^2$$
+**Critère de division - Indice de Gini :** $$G_m = \sum_{k=1}^{K} p_{mk}(1 - p_{mk}) = 1 - \sum_{k=1}^{K} p_{mk}^2$$
 
 où $p_{mk}$ est la proportion d'observations de classe $k$ dans le nœud $m$.
 
-**Erreur Out-of-Bag (OOB) :**
-$$\text{Erreur OOB} = \frac{1}{n} \sum_{i=1}^{n} I\left(y_i \neq \hat{f}_{OOB}(x_i)\right)$$
+**Erreur Out-of-Bag (OOB) :** $$\text{Erreur OOB} = \frac{1}{n} \sum_{i=1}^{n} I\left(y_i \neq \hat{f}_{OOB}(x_i)\right)$$
 
-**Avantages :** Gestion naturelle de la grande dimension, robustesse au bruit  
+**Avantages :** Gestion naturelle de la grande dimension, robustesse au bruit\
 **Inconvénients :** Interprétabilité limitée, temps de calcul plus élevé
 
 #### Implémentation et optimisation
@@ -654,7 +560,7 @@ for(i in 1:k_folds) {
                          ntree = best_params$ntree)
   
   # Prédictions
-  pred_class <- predict(rf_temp, test_data)
+  pred_class <- predict(rf_temp, test_data$Y)
   
   # Calcul des métriques
   metrics <- calculate_metrics_robust(pred_class, test_data$Y)
@@ -678,31 +584,25 @@ Le gradient boosting diffère de la forêt aléatoire par son approche séquenti
 
 **Algorithme de Gradient Boosting :**
 
-1. **Initialisation :** 
-$$F_0(x) = \text{argmin}_{\gamma} \sum_{i=1}^n L(y_i, \gamma)$$
+1.  **Initialisation :** $$F_0(x) = \text{argmin}_{\gamma} \sum_{i=1}^n L(y_i, \gamma)$$
 
-2. **Pour $m = 1, 2, ..., M$ :**
-   
-   a) **Calcul des pseudo-résidus :**
-   $$r_{im} = -\left[\frac{\partial L(y_i, F(x_i))}{\partial F(x_i)}\right]_{F=F_{m-1}}$$
-   
-   b) **Ajustement d'un arbre faible :**
-   Entraîner $h_m(x)$ sur $\{(x_i, r_{im})\}_{i=1}^n$
-   
-   c) **Optimisation du pas :**
-   $$\gamma_m = \text{argmin}_{\gamma} \sum_{i=1}^n L(y_i, F_{m-1}(x_i) + \gamma h_m(x_i))$$
-   
-   d) **Mise à jour du modèle :**
-   $$F_m(x) = F_{m-1}(x) + \nu \gamma_m h_m(x)$$
+2.  **Pour** $m = 1, 2, ..., M$ :
 
-3. **Prédiction finale :** $\hat{f}(x) = F_M(x)$
+    a)  **Calcul des pseudo-résidus :** $$r_{im} = -\left[\frac{\partial L(y_i, F(x_i))}{\partial F(x_i)}\right]_{F=F_{m-1}}$$
 
-**Fonction de perte (classification binaire - déviance) :**
-$$L(y, F(x)) = \log(1 + e^{-2yF(x)})$$
+    b)  **Ajustement d'un arbre faible :** Entraîner $h_m(x)$ sur $\{(x_i, r_{im})\}_{i=1}^n$
+
+    c)  **Optimisation du pas :** $$\gamma_m = \text{argmin}_{\gamma} \sum_{i=1}^n L(y_i, F_{m-1}(x_i) + \gamma h_m(x_i))$$
+
+    d)  **Mise à jour du modèle :** $$F_m(x) = F_{m-1}(x) + \nu \gamma_m h_m(x)$$
+
+3.  **Prédiction finale :** $\hat{f}(x) = F_M(x)$
+
+**Fonction de perte (classification binaire - déviance) :** $$L(y, F(x)) = \log(1 + e^{-2yF(x)})$$
 
 où $\nu \in (0,1]$ est le taux d'apprentissage (shrinkage).
 
-**Avantages :** Excellente capacité d'apprentissage, adaptation fine aux patterns complexes  
+**Avantages :** Excellente capacité d'apprentissage, adaptation fine aux patterns complexes\
 **Inconvénients :** Risque de surapprentissage, temps de calcul élevé
 
 #### Implémentation et optimisation
@@ -870,20 +770,18 @@ print(p1)
 
 Les résultats de validation croisée révèlent une hiérarchie nuancée des performances avec des différences modérées entre les méthodes :
 
-1.  **Régression Logistique Ridge** : Performance légèrement supérieure 
+1.  **Régression Logistique Ridge** : Performance légèrement supérieure
     -   **Accuracy** : 58,21% (± 2,26%), la plus élevée des trois méthodes
     -   **Sensibilité** : 100,0% (± 0%), détection parfaite de la classe AML
     -   **Spécificité** : 0,0% (± 0%), incapacité totale à détecter la classe ALL
     -   **F1-score** : 73,57% (± 1,77%), score équilibré le plus élevé
     -   Modèle stable (écart-type faible) mais avec un biais vers la classe majoritaire
-
 2.  **Gradient Boosting** : Performance intermédiaire avec meilleur équilibre
     -   **Accuracy** : 57,86% (± 20,55%), performance proche de la régression logistique
     -   **Sensibilité** : 78,00% (± 24,86%), bonne détection de la classe AML
     -   **Spécificité** : 30,00% (± 24,60%), seule méthode avec spécificité non-nulle
     -   **F1-score** : 67,30% (± 18,68%), équilibre acceptable entre précision et rappel
     -   Variabilité élevée mais capacité unique à discriminer les deux classes
-
 3.  **Forêt Aléatoire** : Performance la plus faible malgré sa robustesse théorique
     -   **Accuracy** : 56,79% (± 5,38%), légèrement inférieure aux autres méthodes
     -   **Sensibilité** : 97,50% (± 7,91%), excellente détection de la classe AML
@@ -893,16 +791,17 @@ Les résultats de validation croisée révèlent une hiérarchie nuancée des pe
 
 #### Adaptation spécifique à la grande dimension
 
-Notre contexte p >> n (1000 variables, 72 observations) révèle des défis particuliers mis en évidence par les résultats quantitatifs :
+Notre contexte p \>\> n (1000 variables, 72 observations) révèle des défis particuliers mis en évidence par les résultats quantitatifs :
 
 -   **Défi du déséquilibre des classes** : Avec 58,3% d'échantillons AML vs 41,7% d'ALL, toutes les méthodes montrent un biais systématique vers la classe majoritaire (spécificité nulle pour RF et régression logistique)
 
--   **Efficacité variable des stratégies de régularisation** : 
+-   **Efficacité variable des stratégies de régularisation** :
+
     -   La régularisation Ridge (λ optimal = 0,18) permet une stabilité remarquable (écart-type accuracy = 2,26%) mais au prix d'un biais complet
     -   Le gradient boosting, malgré sa variabilité élevée (écart-type = 20,55%), est la seule méthode atteignant une spécificité mesurable (30%)
     -   La forêt aléatoire, théoriquement robuste, reproduit les limitations de la régression logistique
 
--   **Impact du ratio p >> n confirmé numériquement** : L'écart modéré entre les performances (maximum 1,42 points d'accuracy entre meilleure et moins bonne méthode) suggère que toutes les méthodes sont limitées par la dimension excessive relative à la taille d'échantillon
+-   **Impact du ratio p \>\> n confirmé numériquement** : L'écart modéré entre les performances (maximum 1,42 points d'accuracy entre meilleure et moins bonne méthode) suggère que toutes les méthodes sont limitées par la dimension excessive relative à la taille d'échantillon
 
 #### Synthèse comparative
 
@@ -928,20 +827,18 @@ Selon les résultats quantitatifs obtenus dans notre contexte spécifique :
     -   Stabilité exceptionnelle : écart-type de seulement **2,26%**
     -   F1-score optimal : **73,57%**, meilleur équilibre précision-rappel
     -   **Limitation critique** : spécificité nulle (0%), inutilisable si la détection de la classe ALL est prioritaire
-
 2.  **Pour la discrimination équilibrée** : **Gradient Boosting**
     -   **Seule méthode avec spécificité mesurable** : 30,00% vs 0,0% pour les autres
     -   Sensibilité équilibrée : **78,00%**, évitant le biais extrême vers AML
     -   Performance globale acceptable : **57,86%** d'accuracy
     -   **Limitation** : variabilité élevée (écart-type **20,55%**) nécessitant validation rigoureuse
-
-3.  **Pour la robustesse et reproductibilité** : **Forêt Aléatoire**  
+3.  **Pour la robustesse et reproductibilité** : **Forêt Aléatoire**
     -   Stabilité intermédiaire : écart-type **5,38%**, plus prévisible que GBM
     -   Sensibilité très élevée : **97,50%** pour la détection d'AML
     -   Performance raisonnable : **56,79%** d'accuracy
     -   **Limitation** : même biais que la régression logistique (spécificité = 0,0%)
 
-**Recommandation contextuelle** : Dans un contexte médical où l'équilibre entre sensibilité et spécificité est crucial, le **Gradient Boosting** s'impose malgré sa variabilité, étant la seule méthode capable de détecter les deux classes (spécificité = 30,00%).
+**Recommandation contextuelle** : Dans un contexte médical où l'équilibre entre sensibilité et spécificité est crucial, le **Gradient Boosting** s'impose malgré sa variabilité, étant la seule méthode capable de détection des deux classes de leucémies.
 
 ### 6.6 Conclusion de l'étude comparative
 
@@ -949,16 +846,10 @@ Cette analyse comparative démontre plusieurs principes fondamentaux de l'appren
 
 **1. Nuancement de la supériorité des méthodes d'ensemble** : Contrairement aux attentes théoriques, la régression logistique Ridge atteint la meilleure accuracy globale (**58,21%**), dépassant le gradient boosting (**57,86%**) et la forêt aléatoire (**56,79%**). Cependant, cette supériorité masque un biais complet (spécificité = 0,0%) qui limite son applicabilité pratique.
 
-**2. Importance critique du choix méthodologique quantifiée** : L'écart de performance modéré (**1,42 points** entre meilleure et moins bonne accuracy) souligne que le choix doit privilégier les caractéristiques qualitatives :
-   - **Stabilité** : Régression logistique (écart-type = 2,26%) >> Forêt aléatoire (5,38%) >> Gradient boosting (20,55%)
-   - **Équilibre classes** : Seul le gradient boosting atteint une spécificité non-nulle (**30%**)
-   - **Sensibilité** : Forêt aléatoire (**97,50%**) ≈ Régression logistique (**100%**) > Gradient boosting (**78%**)
+**2. Importance critique du choix méthodologique quantifiée** : L'écart de performance modéré (**1,42 points** entre meilleure et moins bonne accuracy) souligne que le choix doit privilégier les caractéristiques qualitatives : - **Stabilité** : Régression logistique (écart-type = 2,26%) \>\> Forêt aléatoire (5,38%) \>\> Gradient boosting (20,55%) - **Équilibre classes** : Seul le gradient boosting atteint une spécificité non-nulle (**30%**) - **Sensibilité** : Forêt aléatoire (**97,50%**) ≈ Régression logistique (**100%**) \> Gradient boosting (**78%**)
 
-**3. Validation empirique des limites en grande dimension** : Le ratio p >> n (1000/72 ≈ 14) impose des contraintes sévères confirmées quantitativement :
-   - Aucune méthode ne dépasse **60% d'accuracy**, illustrant la difficulté intrinsèque
-   - Le déséquilibre des classes (58,3% AML / 41,7% ALL) amplifie les biais algorithmiques
-   - La régularisation optimale (λ = 0,18 pour Ridge) privilégie la stabilité au détriment de la discrimination
+**3. Validation empirique des limites en grande dimension** : Le ratio p \>\> n (1000/72 ≈ 14) impose des contraintes sévères confirmées numériquement : - Aucune méthode ne dépasse **60% d'accuracy**, illustrant la difficulté intrinsèque - Le déséquilibre des classes (58,3% AML / 41,7% ALL) amplifie les biais algorithmiques - La régularisation optimale (λ = 0,18 pour Ridge) privilégie la stabilité au détriment de la discrimination
 
-**4. Adaptation contextuelle nécessaire** : Dans notre contexte médical spécifique (classification leucémies), le **gradient boosting** s'impose comme choix optimal malgré sa variabilité (**écart-type 20,55%**), étant la seule méthode capable de discrimination bi-classe, critère essentiel en diagnostic différentiel.
+**4. Adaptation contextuelle nécessaire** : Dans notre contexte médical spécifique (classification leucémies), le **gradient boosting** s'impose comme choix optimal malgré sa variabilité, étant la seule méthode capable de détection des deux classes de leucémies.
 
-Cette étude confirme empiriquement qu'en contexte p >> n, **aucune méthode n'est universellement optimale** : le choix doit intégrer les contraintes métier (ici, la nécessité de détecter les deux classes de leucémies) au-delà des seules métriques de performance globale. La validation croisée rigoureuse révèle des nuances cruciales masquées par les moyennes agrégées.
+Cette étude confirme empiriquement qu'en contexte p \>\> n, **aucune méthode n'est universellement optimale** : le choix doit intégrer les contraintes métier (ici, la nécessité de détecter les deux classes de leucémies) au-delà des seules métriques de performance globale. La validation croisée rigoureuse révèle des nuances cruciales masquées par les moyennes agrégées.
